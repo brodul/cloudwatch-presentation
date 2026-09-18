@@ -4,10 +4,16 @@ Illustrative reference material for combining Amazon CloudWatch metrics (and log
 across multiple AWS accounts and multiple regions, plus shipping the result into Grafana
 Cloud. Built for a 15-minute AWS meetup talk and a companion blog post.
 
-**This is reference code, not a deployable stack.** Nothing here defaults to creating
-billable resources (no EC2 instances, no new AWS accounts). Account IDs, org IDs, and
-Grafana stack IDs are all Terraform variables with clearly-fake placeholder defaults —
-adapt them to your own environment before running `terraform apply` against anything.
+**By default this is reference code, not a deployable stack.** Account IDs, org IDs, and
+Grafana stack IDs are all Terraform variables with clearly-fake placeholder defaults, and
+real-infra-creating resources (a new AWS member account, EC2 instances) are gated behind
+`create_account` / `create_ec2_instances` variables that default to `false` — cloning and
+running `terraform plan` with no overrides provisions nothing and is safe to do.
+
+To actually provision real infrastructure (e.g. to run this as a genuine demo rather than
+just reading the code): copy `terraform/terraform.tfvars.example` to a gitignored
+`terraform/terraform.tfvars`, fill in your real account/org/Grafana values, and set
+`create_account = true` / `create_ec2_instances = true`. Never commit that file.
 
 ## Contents
 

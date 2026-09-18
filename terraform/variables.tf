@@ -51,3 +51,43 @@ variable "grafana_aws_external_id" {
   sensitive   = true
   default     = ""
 }
+
+# --- Real-infra switches -----------------------------------------------
+# All default to false/inert so cloning and planning this repo never
+# provisions anything. Flip these in your own gitignored terraform.tfvars.
+
+variable "create_account" {
+  description = "If true, creates a real AWS member account via aws_organizations_account"
+  type        = bool
+  default     = false
+}
+
+variable "demo_account_name" {
+  description = "Name for the new AWS member account (only used if create_account = true)"
+  type        = string
+  default     = "cloudwatch-demo"
+}
+
+variable "demo_account_email" {
+  description = "Root email for the new AWS member account (only used if create_account = true)"
+  type        = string
+  default     = ""
+}
+
+variable "demo_account_parent_ou_id" {
+  description = "Organizational Unit ID the new account is created under (only used if create_account = true)"
+  type        = string
+  default     = ""
+}
+
+variable "create_ec2_instances" {
+  description = "If true, launches one small EC2 instance per region to generate real CloudWatch metrics"
+  type        = bool
+  default     = false
+}
+
+variable "allowed_ssh_cidr" {
+  description = "CIDR allowed to SSH into demo EC2 instances (your own IP, /32) — required if create_ec2_instances = true"
+  type        = string
+  default     = ""
+}
