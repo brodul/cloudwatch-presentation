@@ -39,6 +39,13 @@ regions needs 3 sinks, and each source account needs a link per region into the 
 regional sink. There's no single global aggregation point inside OAM — you view region A
 from the monitoring account's region A console, region B from its region B console.
 
+This repo's demo makes that catch concrete with 3 real AWS accounts (see
+[`terraform/account.tf`](../terraform/account.tf)): `account_a` is the OAM monitoring
+account; `account_b` is deliberately placed in the *same* region as `account_a`, so it can
+create a real cross-account link into `account_a`'s sink; `account_c` sits in a *different*
+region on purpose and has no link at all — proving live that region, not just account
+membership, gates whether OAM can connect two accounts.
+
 **Cost**: source accounts pay normal CloudWatch/X-Ray rates; the monitoring account pays
 for cross-account Logs Insights queries and API calls against shared data.
 

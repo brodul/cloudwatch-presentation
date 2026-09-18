@@ -26,6 +26,20 @@ variable "regions" {
   default     = ["us-east-1", "us-west-2", "eu-central-1"]
 }
 
+# Three demo member accounts, one per region — except account_b, which
+# deliberately shares account_a's region. That pair proves real cross-account
+# OAM linking (same region, two accounts); account_c sits in a third region
+# to demonstrate that OAM sinks/links cannot cross regions.
+variable "demo_accounts" {
+  description = "Demo member accounts: key -> region. account_a and account_b share a region on purpose."
+  type        = map(string)
+  default = {
+    account_a = "us-east-1" # OAM monitoring account's region
+    account_b = "us-east-1" # same region as account_a -> can link via OAM
+    account_c = "us-west-2" # different region -> cannot link into account_a's sink
+  }
+}
+
 variable "grafana_cloud_stack_slug" {
   description = "Grafana Cloud stack slug that receives CloudWatch data"
   type        = string

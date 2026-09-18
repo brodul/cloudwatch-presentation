@@ -1,24 +1,21 @@
 # Approach 1: CloudWatch Observability Access Manager (OAM)
 #
-# One sink per region in the monitoring account, one link per region per source
-# account. Sinks and links cannot cross regions — a monitoring account that
-# wants visibility into N regions needs a sink (and matching links) in each of
-# those N regions.
+# account_a (the org's management/default provider) is the OAM monitoring
+# account. account_b shares account_a's region on purpose, so it can create a
+# real cross-account OAM link into account_a's sink. account_c sits in a
+# different region — deliberately left without a link, to demonstrate that
+# OAM sinks/links cannot cross regions: a monitoring account visible into
+# account_c's region would need its own sink there too, plus a link created
+# from account_c targeting it.
 
 resource "aws_oam_sink" "monitoring" {
-  for_each = toset(var.regions)
-
-  provider = aws # swap for the appropriate regional alias when adapting this
-  name     = "meetup-demo-monitoring-sink-${each.key}"
+  name = "meetup-demo-monitoring-sink"
 }
 
-# Sink policy scoped to the whole AWS Organization, matching this example's
-# pattern of trusting by org membership rather than listing individual
-# accounts one by one.
+# Sink policy scoped to the whole AWS Organization, so any current or future
+# member account in the same region as this sink can link to it.
 resource "aws_oam_sink_policy" "monitoring" {
-  for_each = aws_oam_sink.monitoring
-
-  sink_identifier = each.value.id
+  sink_identifier = aws_oam_sink.monitoring.id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -51,14 +48,11 @@ resource "aws_oam_sink_policy" "monitoring" {
   })
 }
 
-# Example link from a source account into the monitoring account's sink for
-# one region. In practice this resource is declared/applied from within each
-# source account, once per region, against the matching regional sink ARN.
-resource "aws_oam_link" "source_example" {
-  for_each = toset(var.regions)
-
-  provider        = aws
-  sink_identifier = aws_oam_sink.monitoring[each.key].id
+# Real cross-account link: created from account_b (same region as the sink),
+# pointing at account_a's sink.
+resource "aws_oam_link" "account_b" {
+  provider        = aws.account_b
+  sink_identifier = aws_oam_sink.monitoring.arn
   label_template  = "$AccountName"
 
   resource_types = [
@@ -66,4 +60,11 @@ resource "aws_oam_link" "source_example" {
     "AWS::Logs::LogGroup",
     "AWS::XRay::Trace",
   ]
+
+  depends_on = [aws_oam_sink_policy.monitoring]
 }
+
+# No aws_oam_link is declared for account_c: it lives in a different region
+# than the sink above, and OAM links must be created in the same region as
+# the sink they target. Demonstrating this gap live is the point of including
+# account_c at all — see docs/approaches.md.
