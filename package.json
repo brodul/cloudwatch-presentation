@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "slides": "reveal-md slides/cloudwatch-meetup.md --scripts node_modules/mermaid/dist/mermaid.min.js,slides/assets/mermaid-init.js",
+    "slides:static": "reveal-md slides/cloudwatch-meetup.md --scripts node_modules/mermaid/dist/mermaid.min.js,slides/assets/mermaid-init.js --static docs/slides-render"
+  },
   "devDependencies": {
     "reveal-md": "^6.1.2"
   }

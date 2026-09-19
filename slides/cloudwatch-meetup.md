@@ -19,15 +19,14 @@ CloudWatch isn't one thing — it's a family of sub-services:
 - **Logs** + **Logs Insights** — log storage and querying
 - **Alarms** — thresholds/anomaly detection triggering actions
 - **Dashboards** — visualization
-- **Events / EventBridge** — reacting to state changes
-- **Synthetics** — scripted canaries
-- **RUM** — real user monitoring for web apps
-- **Contributor Insights** — top-N analysis over logs
+- **Events / EventBridge**, **Synthetics**, **RUM**, **Contributor Insights** — and more
 
 <aside class="notes">
 Point being: "CloudWatch" as a word covers a lot of ground, and cross-account/cross-region
 support differs *per sub-service*, which is exactly why there are multiple approaches
-instead of one.
+instead of one. Events/EventBridge react to state changes, Synthetics runs scripted
+canaries, RUM is real user monitoring for web apps, Contributor Insights does top-N
+analysis over logs.
 </aside>
 
 ---
@@ -72,11 +71,42 @@ N accounts × M regions = fragmented visibility
 
 Covers metrics, logs, traces, X-Ray — the richest picture.
 
-**Catch**: sinks/links can't cross regions. N regions = N sinks + N×(source accounts) links.
+**Catch**: sinks/links can't cross regions.
 
 <aside class="notes">
-Reference terraform/oam.tf in the repo. Mention aws-samples' OAM Terraform example repo
-for anyone who wants a deeper starting point.
+N regions = N sinks + N×(source accounts) links. Reference terraform/oam.tf in the repo.
+Mention aws-samples' OAM Terraform example repo for anyone who wants a deeper starting
+point.
+</aside>
+
+---
+
+## Approach 1: OAM, diagrammed
+
+```mermaid
+flowchart LR
+    subgraph rA["Region: us-east-1"]
+        subgraph accA["account_a (monitoring)"]
+            sink["OAM Sink"]
+        end
+        subgraph accB["account_b (source)"]
+            linkB["OAM Link"]
+        end
+        linkB -->|metrics, logs, traces| sink
+    end
+    subgraph rB["Region: us-west-2"]
+        subgraph accC["account_c (source)"]
+            linkC["OAM Link — no sink here!"]
+        end
+    end
+    linkC -.->|"cannot cross region"| sink
+    style linkC stroke-dasharray: 5 5,stroke:#f66
+```
+
+<aside class="notes">
+Sink lives in account_a's region. account_b links in fine — same region. account_c tries
+to link but there's no sink in us-west-2, so nothing arrives — that dotted line is the
+catch made visual.
 </aside>
 
 ---
@@ -86,15 +116,15 @@ for anyone who wants a deeper starting point.
 Dashboard: **"1: OAM Cross-Account View"**
 
 - `account_a` (us-east-1) is the OAM monitoring account
-- `account_b` (us-east-1) links into it — its EC2 CPUUtilization shows up on
-  account_a's dashboard with zero direct connection to account_b
-- `account_c` (us-west-2) is **deliberately not visible** — different region,
-  no link, no sink there. That gap on screen *is* the "sinks/links can't
-  cross regions" catch, live.
+- `account_b` (us-east-1) links into it — zero direct connection, yet its
+  CPUUtilization shows up on account_a's dashboard
+- `account_c` (us-west-2) is **deliberately not visible** — different region
 
 <aside class="notes">
 Point at the two series on the graph and say which account each instance ID belongs to.
-The empty region-3 panel is the punchline, not a bug — say so explicitly.
+account_c has no link, no sink in its region — that gap on screen is the "sinks/links
+can't cross regions" catch, live. The empty region-3 panel is the punchline, not a bug —
+say so explicitly.
 </aside>
 
 ---
@@ -113,6 +143,34 @@ only."
 
 ---
 
+## Approach 2: console, diagrammed
+
+```mermaid
+flowchart LR
+    subgraph mon["Monitoring account"]
+        role1["ServiceRoleForCloudWatchCrossAccountV2"]
+        console["CloudWatch Console<br/>(merged view)"]
+    end
+    subgraph src1["Source account, region A"]
+        share1["CloudWatch-CrossAccountSharingRole"]
+    end
+    subgraph src2["Source account, region B"]
+        share2["CloudWatch-CrossAccountSharingRole"]
+    end
+    role1 -->|sts:AssumeRole| share1
+    role1 -->|sts:AssumeRole| share2
+    share1 -->|metrics + dashboards, view only| console
+    share2 -->|metrics + dashboards, view only| console
+```
+
+<aside class="notes">
+One role in the monitoring account assumes a same-named sharing role in every source
+account, in any region, automatically — that's what makes cross-region graphing "free"
+here versus OAM. But the merged result only exists inside this console UI.
+</aside>
+
+---
+
 ## Approach 2, live — or rather, not
 
 Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
@@ -120,15 +178,15 @@ Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
 This is the one approach with **no metrics panel** — on purpose.
 
 - The IAM roles exist (`terraform/cross-account-console.tf`) and work
-- But the merged cross-account view only ever renders **inside the AWS
-  Console itself** (CloudWatch → Settings → Monitoring account configuration)
-- Grafana's CloudWatch data source always queries via its own assumed role —
-  there's no API surface for "the monitoring-account merged view" that a
-  third-party tool can call
+- The merged view only ever renders **inside the AWS Console itself**
+- No API surface for it — nothing a third-party tool can call
 
 <aside class="notes">
-Good moment to flip to the actual AWS Console and show the real feature, since Grafana
-can't. This is an honest limitation, not a gap in the demo.
+The console view lives at CloudWatch → Settings → Monitoring account configuration.
+Grafana's CloudWatch data source always queries via its own assumed role, so there's
+no API surface for "the monitoring-account merged view" it could hit. Good moment to
+flip to the actual AWS Console and show the real feature, since Grafana can't. This is
+an honest limitation, not a gap in the demo.
 </aside>
 
 ---
@@ -143,17 +201,47 @@ CloudWatch Metric Streams → Kinesis Firehose → S3 or a third-party sink
 
 ---
 
+## Approach 3: export, diagrammed
+
+```mermaid
+flowchart LR
+    subgraph accA["account_a"]
+        msA["Metric Stream"] --> fhA["Firehose"]
+    end
+    subgraph accB["account_b"]
+        msB["Metric Stream"] --> fhB["Firehose"]
+    end
+    subgraph accC["account_c"]
+        msC["Metric Stream"] --> fhC["Firehose"]
+    end
+    fhA -->|OTLP over HTTP| grafana[("Grafana Cloud<br/>Prometheus / Mimir")]
+    fhB -->|OTLP over HTTP| grafana
+    fhC -->|OTLP over HTTP| grafana
+    grafana --> dash["One dashboard<br/>plain PromQL"]
+```
+
+<aside class="notes">
+Every account/region streams independently and directly to the same external store —
+no monitoring account, no assumed roles at query time. This is the one topology where
+the "many accounts" problem actually disappears at the data layer, not just the UI layer.
+</aside>
+
+---
+
 ## Approach 3, live
 
 Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
 
 - All 3 accounts stream metrics independently into the same Grafana Cloud
   Prometheus (Mimir) instance
-- Queried with plain PromQL (`aws_ec2_cpuutilization_average`), not the
-  CloudWatch API at all — this dashboard has no CloudWatch data source
-- One graph, 3 accounts, 2 regions, no per-account/region query fan-out —
-  this is what "true consolidation" actually looks like, not just "a nicer
-  view"
+- Queried with plain PromQL (`aws_ec2_cpuutilization_average`) — this
+  dashboard has no CloudWatch data source at all
+- One graph, 3 accounts, 2 regions, no per-account/region query fan-out
+
+<aside class="notes">
+This is what "true consolidation" actually looks like, not just "a nicer view" — one
+query hits every account at once instead of fanning out per account/region.
+</aside>
 
 ---
 
@@ -175,33 +263,36 @@ Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
 | Simplest cross-region metrics dashboard | Console feature |
 | True consolidation / 3rd-party sink | Export / Metric Streams |
 
-They compose — OAM per-region + the console feature on top, or OAM internally + Metric
-Streams feeding Grafana externally.
+They compose — mix and match per-region or per-tool.
+
+<aside class="notes">
+E.g. OAM per-region + the console feature on top, or OAM internally + Metric Streams
+feeding Grafana externally.
+</aside>
 
 ---
 
-## What actually broke building this
+## What actually broke
 
 The concepts are clean; the implementation had sharp edges. A sample:
 
-- Grafana's CloudWatch auth needs the exact `authType = "grafana_assume_role"`
-  — not `"default"` + `assumeRoleArn`, not `"arn"`
-- OAM discovery needs `oam:ListSinks`/`oam:ListAttachedLinks` on top of
-  `CloudWatchReadOnlyAccess`, or the link is invisible to Grafana
-- CloudWatch's OTLP→Prometheus metric names aren't a mechanical
-  lowercase-and-underscore transform (`network_in`, not `networkin`)
-- Hand-built dashboard JSON can be **backend-valid but frontend-inert** — the
-  CloudWatch query editor silently refuses to fire queries missing 4 fields
-  (`accountId`, `metricEditorMode`, `metricQueryType`, `queryMode`), with no
-  error anywhere
+- Grafana's CloudWatch auth needs an exact, undocumented-feeling `authType`
+- OAM discovery needs IAM permissions beyond `CloudWatchReadOnlyAccess`
+- CloudWatch's OTLP→Prometheus metric names aren't a mechanical transform
+- Hand-built dashboard JSON can be backend-valid but **frontend-inert**
 
-Full list: `docs/gotchas.md` in the repo.
+Full list: `docs/gotchas.md`
 
 <aside class="notes">
-The frontend-inert one cost the most time: healthy datasource, correct data returned by
-the exact same query called directly via the API, yet the live dashboard panel showed
-"No data" with zero errors in the console or network tab. Worth calling out as the
-"if you build dashboards by hand, watch for this" takeaway.
+Auth: needs the exact `authType = "grafana_assume_role"` — not `"default"` +
+assumeRoleArn, not `"arn"`. OAM: needs `oam:ListSinks`/`oam:ListAttachedLinks` on top of
+CloudWatchReadOnlyAccess, or the link is invisible to Grafana. OTLP naming: e.g.
+`network_in`, not `networkin`. Frontend-inert: the CloudWatch query editor silently
+refuses to fire queries missing 4 fields (accountId, metricEditorMode, metricQueryType,
+queryMode), with no error anywhere. This one cost the most time — healthy datasource,
+correct data returned by the exact same query called directly via the API, yet the live
+dashboard panel showed "No data" with zero errors in the console or network tab. Worth
+calling out as the "if you build dashboards by hand, watch for this" takeaway.
 </aside>
 
 ---
