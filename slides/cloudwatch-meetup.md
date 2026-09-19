@@ -5,7 +5,8 @@
 
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
-take home. This isn't a live demo — it's reference architecture and code.
+take home. This *is* a live demo now — 3 real AWS accounts, real EC2 instances, real
+Grafana dashboards, all wired up and working end to end.
 </aside>
 
 ---
@@ -80,6 +81,24 @@ for anyone who wants a deeper starting point.
 
 ---
 
+## Approach 1, live
+
+Dashboard: **"1: OAM Cross-Account View"**
+
+- `account_a` (us-east-1) is the OAM monitoring account
+- `account_b` (us-east-1) links into it — its EC2 CPUUtilization shows up on
+  account_a's dashboard with zero direct connection to account_b
+- `account_c` (us-west-2) is **deliberately not visible** — different region,
+  no link, no sink there. That gap on screen *is* the "sinks/links can't
+  cross regions" catch, live.
+
+<aside class="notes">
+Point at the two series on the graph and say which account each instance ID belongs to.
+The empty region-3 panel is the punchline, not a bug — say so explicitly.
+</aside>
+
+---
+
 ## Approach 2: Cross-account, cross-Region console
 
 Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole` /
@@ -94,6 +113,26 @@ only."
 
 ---
 
+## Approach 2, live — or rather, not
+
+Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
+
+This is the one approach with **no metrics panel** — on purpose.
+
+- The IAM roles exist (`terraform/cross-account-console.tf`) and work
+- But the merged cross-account view only ever renders **inside the AWS
+  Console itself** (CloudWatch → Settings → Monitoring account configuration)
+- Grafana's CloudWatch data source always queries via its own assumed role —
+  there's no API surface for "the monitoring-account merged view" that a
+  third-party tool can call
+
+<aside class="notes">
+Good moment to flip to the actual AWS Console and show the real feature, since Grafana
+can't. This is an honest limitation, not a gap in the demo.
+</aside>
+
+---
+
 ## Approach 3: Export / stream it out
 
 CloudWatch Metric Streams → Kinesis Firehose → S3 or a third-party sink
@@ -101,6 +140,20 @@ CloudWatch Metric Streams → Kinesis Firehose → S3 or a third-party sink
 - The only approach that gives **true consolidation** into one store
 - Needed for long retention or feeding external tools (Grafana, Datadog, ...)
 - Each region needs its own stream; can share one destination
+
+---
+
+## Approach 3, live
+
+Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
+
+- All 3 accounts stream metrics independently into the same Grafana Cloud
+  Prometheus (Mimir) instance
+- Queried with plain PromQL (`aws_ec2_cpuutilization_average`), not the
+  CloudWatch API at all — this dashboard has no CloudWatch data source
+- One graph, 3 accounts, 2 regions, no per-account/region query fan-out —
+  this is what "true consolidation" actually looks like, not just "a nicer
+  view"
 
 ---
 
@@ -127,12 +180,39 @@ Streams feeding Grafana externally.
 
 ---
 
+## What actually broke building this
+
+The concepts are clean; the implementation had sharp edges. A sample:
+
+- Grafana's CloudWatch auth needs the exact `authType = "grafana_assume_role"`
+  — not `"default"` + `assumeRoleArn`, not `"arn"`
+- OAM discovery needs `oam:ListSinks`/`oam:ListAttachedLinks` on top of
+  `CloudWatchReadOnlyAccess`, or the link is invisible to Grafana
+- CloudWatch's OTLP→Prometheus metric names aren't a mechanical
+  lowercase-and-underscore transform (`network_in`, not `networkin`)
+- Hand-built dashboard JSON can be **backend-valid but frontend-inert** — the
+  CloudWatch query editor silently refuses to fire queries missing 4 fields
+  (`accountId`, `metricEditorMode`, `metricQueryType`, `queryMode`), with no
+  error anywhere
+
+Full list: `docs/gotchas.md` in the repo.
+
+<aside class="notes">
+The frontend-inert one cost the most time: healthy datasource, correct data returned by
+the exact same query called directly via the API, yet the live dashboard panel showed
+"No data" with zero errors in the console or network tab. Worth calling out as the
+"if you build dashboards by hand, watch for this" takeaway.
+</aside>
+
+---
+
 ## Reference repo
 
-All of this — Terraform, docs, this deck — is illustrative and safe to clone:
+Terraform, docs, this deck, and now a **working real-infra path**:
 
-- No real account IDs (all inputs, fake defaults)
-- Reads org context via `data` sources, doesn't provision anything by default
+- 3 real AWS accounts, 3 EC2 instances, all 3 approaches demoed live in Grafana
+- Illustrative path still available — reads org context via `data` sources,
+  provisions nothing until you opt in (see `README.md` for the gate)
 - Adapt the resource blocks to your own environment before applying
 
 Thanks! Questions?

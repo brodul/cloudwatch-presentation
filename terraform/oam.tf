@@ -1,20 +1,26 @@
 # Approach 1: CloudWatch Observability Access Manager (OAM)
 #
-# account_a (the org's management/default provider) is the OAM monitoring
-# account. account_b shares account_a's region on purpose, so it can create a
-# real cross-account OAM link into account_a's sink. account_c sits in a
+# account_a is the OAM monitoring account — the sink below is explicitly
+# created there via the aws.account_a provider alias, not the org's
+# management account (an earlier version of this conflated the two, which
+# broke dashboard 2: Grafana's CloudWatch data source authenticates via a
+# role in account_a, so a sink living anywhere else is invisible to it).
+# account_b shares account_a's region on purpose, so it can create a real
+# cross-account OAM link into account_a's sink. account_c sits in a
 # different region — deliberately left without a link, to demonstrate that
 # OAM sinks/links cannot cross regions: a monitoring account visible into
 # account_c's region would need its own sink there too, plus a link created
 # from account_c targeting it.
 
 resource "aws_oam_sink" "monitoring" {
-  name = "meetup-demo-monitoring-sink"
+  provider = aws.account_a
+  name     = "meetup-demo-monitoring-sink"
 }
 
 # Sink policy scoped to the whole AWS Organization, so any current or future
 # member account in the same region as this sink can link to it.
 resource "aws_oam_sink_policy" "monitoring" {
+  provider        = aws.account_a
   sink_identifier = aws_oam_sink.monitoring.id
 
   policy = jsonencode({

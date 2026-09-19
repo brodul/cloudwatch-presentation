@@ -80,11 +80,20 @@ that's not enough:
 - You want to feed a non-CloudWatch destination — Grafana, Datadog, a data warehouse.
 
 The mechanism here is **CloudWatch Metric Streams** → **Kinesis Data Firehose** → a
-destination (S3, or directly to a supported third-party integration like Grafana Cloud).
-Each region needs its own Metric Stream and Firehose delivery stream, but they can all
-point at one shared destination — this is the one approach where cross-region
-consolidation into a single store actually happens, rather than being a console-side
-illusion.
+destination. Firehose supports delivering straight to a supported third-party
+integration — this repo's demo sends directly to **Grafana Cloud's CloudWatch Metric
+Streams HTTP endpoint**, using the required OTLP 1.0 output format (Grafana's ingest
+service does not accept the JSON output format for this integration). S3 is only
+configured as a `FailedDataOnly` backup destination, not the primary data path — the
+metrics land in Grafana directly, without a separate query layer (Athena, etc.) in
+between.
+
+Metric Streams must be declared in the account and region that actually emit the
+metrics — a stream in one account only sees that account's own CloudWatch data. This
+repo's demo therefore declares one Metric Stream + Firehose delivery stream per demo
+account (see [`terraform/modules/metric-stream/`](../terraform/modules/metric-stream/)),
+each streaming independently into the same Grafana Cloud stack — which is itself an
+example of consolidation across accounts and regions into a single destination.
 
 Cross-account log aggregation follows a parallel pattern using **CloudWatch Logs
 subscription filters** shipping to a central destination.

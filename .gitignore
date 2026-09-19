@@ -2,5 +2,7 @@
 *.tfstate
 *.tfstate.*
 *.tfvars
+tfplan*
 .env
 node_modules/
+docs/slides-render/

@@ -28,18 +28,23 @@ provider "aws" {
 # operates in that account's designated region. This is what lets a single
 # `apply` manage resources inside 3 separate AWS accounts.
 #
-# assume_role is a no-op when create_account = false — the alias then just
-# behaves like a plain regional provider against whatever account your
-# default credentials belong to (useful for `terraform validate`/`plan`
-# against an existing single account while iterating).
+# Deliberately driven by var.demo_account_ids (a plain variable), not
+# aws_organizations_account.demo[...].id — provider blocks are configured
+# before the resource graph resolves, so referencing a resource created in
+# the same apply here would be a cycle. Phase 1: create the accounts with
+# demo_account_ids left empty (assume_role becomes a no-op, so phase 1's
+# resources land in your default/management-account credentials, which is
+# fine since phase 1 only touches aws_organizations_account). Phase 2: paste
+# the resulting real account IDs into demo_account_ids, then apply again —
+# now these providers assume into the right accounts for everything else.
 provider "aws" {
   alias  = "account_a"
   region = var.demo_accounts["account_a"]
 
   dynamic "assume_role" {
-    for_each = var.create_account ? [1] : []
+    for_each = var.demo_account_ids["account_a"] != "" ? [1] : []
     content {
-      role_arn = "arn:aws:iam::${aws_organizations_account.demo["account_a"].id}:role/OrganizationAccountAccessRole"
+      role_arn = "arn:aws:iam::${var.demo_account_ids["account_a"]}:role/OrganizationAccountAccessRole"
     }
   }
 }
@@ -49,9 +54,9 @@ provider "aws" {
   region = var.demo_accounts["account_b"]
 
   dynamic "assume_role" {
-    for_each = var.create_account ? [1] : []
+    for_each = var.demo_account_ids["account_b"] != "" ? [1] : []
     content {
-      role_arn = "arn:aws:iam::${aws_organizations_account.demo["account_b"].id}:role/OrganizationAccountAccessRole"
+      role_arn = "arn:aws:iam::${var.demo_account_ids["account_b"]}:role/OrganizationAccountAccessRole"
     }
   }
 }
@@ -61,15 +66,28 @@ provider "aws" {
   region = var.demo_accounts["account_c"]
 
   dynamic "assume_role" {
-    for_each = var.create_account ? [1] : []
+    for_each = var.demo_account_ids["account_c"] != "" ? [1] : []
     content {
-      role_arn = "arn:aws:iam::${aws_organizations_account.demo["account_c"].id}:role/OrganizationAccountAccessRole"
+      role_arn = "arn:aws:iam::${var.demo_account_ids["account_c"]}:role/OrganizationAccountAccessRole"
     }
   }
 }
 
-# Grafana Cloud provider, authenticated via a Cloud Access Policy token.
+# Grafana Cloud Portal-level provider, authenticated via a Cloud Access
+# Policy token. Only used for Cloud Portal API calls (looking up the stack,
+# creating a stack-scoped service account/token below) — it cannot create
+# resources like data sources *inside* a stack's own Grafana instance.
 # Set via TF_VAR_grafana_cloud_access_policy_token from a gitignored .env, never in this file.
 provider "grafana" {
   cloud_access_policy_token = var.grafana_cloud_access_policy_token
+}
+
+# Stack-scoped provider: authenticates directly against the target stack's
+# own Grafana instance (not the Cloud Portal), using the service account
+# token created in grafana.tf. This is what can create grafana_data_source
+# and other in-stack resources.
+provider "grafana" {
+  alias = "stack"
+  url   = data.grafana_cloud_stack.this.url
+  auth  = grafana_cloud_stack_service_account_token.this.key
 }

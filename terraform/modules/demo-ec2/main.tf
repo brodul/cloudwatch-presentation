@@ -13,6 +13,24 @@ data "aws_subnets" "default" {
   }
 }
 
+# Not every AZ in a region supports every instance type (e.g. some
+# us-east-1 AZs lack t3.micro) — filter subnets down to AZs that actually
+# offer var.instance_type before picking one, rather than blindly using
+# the first subnet returned.
+data "aws_ec2_instance_type_offerings" "available" {
+  filter {
+    name   = "instance-type"
+    values = [var.instance_type]
+  }
+
+  location_type = "availability-zone"
+}
+
+data "aws_subnet" "candidates" {
+  for_each = toset(data.aws_subnets.default.ids)
+  id       = each.value
+}
+
 data "aws_ami" "amazon_linux" {
   most_recent = true
   owners      = ["amazon"]
@@ -48,10 +66,21 @@ resource "aws_security_group" "demo" {
   }
 }
 
+locals {
+  # sort() makes this deterministic across plans — for_each/data source
+  # ordering over a set is otherwise unspecified, which would make
+  # supported_subnet_ids[0] flap between runs and force needless instance
+  # replacement.
+  supported_subnet_ids = sort([
+    for id, subnet in data.aws_subnet.candidates :
+    id if contains(data.aws_ec2_instance_type_offerings.available.locations, subnet.availability_zone)
+  ])
+}
+
 resource "aws_instance" "demo" {
   ami                    = data.aws_ami.amazon_linux.id
   instance_type          = var.instance_type
-  subnet_id              = data.aws_subnets.default.ids[0]
+  subnet_id              = local.supported_subnet_ids[0]
   vpc_security_group_ids = [aws_security_group.demo.id]
 
   tags = {

@@ -1,15 +1,19 @@
 # Copy this file to terraform.tfvars (gitignored) and fill in real values to
 # provision actual infrastructure. Never commit terraform.tfvars.
 
-# Point at your real org/account if you want to actually apply this.
-monitoring_account_id = "123456789012"
-source_account_ids    = ["234567890123"]
-org_id                = "o-yourrealorgid"
+# Point at your real org if you want to actually apply this.
+org_id = "o-yourrealorgid"
 
 # Real Grafana Cloud stack.
 grafana_cloud_stack_slug          = "yourstackname"
 grafana_cloud_access_policy_token = "glc_..."
 grafana_aws_external_id           = "..."
+grafana_labs_aws_account_id       = "..." # from Grafana's CloudWatch data source docs
+
+# Approach 3 (Metric Streams -> Firehose -> Grafana Cloud directly) needs no
+# extra variables — the endpoint, Prometheus user ID, and a metrics:write
+# access policy token are all derived/created automatically in grafana.tf
+# from the grafana_cloud_stack_slug above.
 
 # --- Real-infra switches ---
 # Both default to false; set true only when you intend to provision and pay

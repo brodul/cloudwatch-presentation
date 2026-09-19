@@ -1,13 +1,10 @@
-# Approach 2: Cross-account, cross-Region CloudWatch console
-#
-# Older IAM-role-based mechanism. Unlike OAM, cross-region graphing on a single
-# dashboard is automatic here — no per-region link needed — but this approach
-# only covers metrics/dashboards/alarms (view-only) and X-Ray trace map, not
-# logs, and you cannot create an alarm in one account/region against a metric
-# in another.
+# Approach 2: Cross-account, cross-Region CloudWatch console. Older IAM-role
+# mechanism - unlike OAM, cross-region graphing is automatic, but it's
+# metrics/dashboards/alarms (view-only) + X-Ray trace map only, no logs, and
+# no cross-account/region alarms.
 
-# Declared in each *sharing* (source) account. Trusts the monitoring account
-# (or, as here, an entire AWS Organization) to assume this role read-only.
+# Declared in each sharing (source) account; trusts the monitoring account
+# (here, the whole Organization) to assume this role read-only.
 resource "aws_iam_role" "cross_account_sharing" {
   name = "CloudWatch-CrossAccountSharingRole"
 
@@ -35,8 +32,8 @@ resource "aws_iam_role_policy_attachment" "cross_account_sharing_readonly" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 
-# Declared in the *monitoring* account. Lets CloudWatch assume the sharing
-# role in any account belonging to the same organization.
+# Declared in the monitoring account; lets CloudWatch assume the sharing
+# role in any account in the same organization.
 resource "aws_iam_role" "monitoring_service_role" {
   name = "ServiceRoleForCloudWatchCrossAccountV2"
   path = "/service-role/"

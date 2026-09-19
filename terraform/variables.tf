@@ -2,18 +2,6 @@
 # Never replace these defaults with real values in a committed file — override
 # them locally via terraform.tfvars (gitignored) or -var flags instead.
 
-variable "monitoring_account_id" {
-  description = "AWS account ID that acts as the CloudWatch monitoring/aggregation account"
-  type        = string
-  default     = "111122223333"
-}
-
-variable "source_account_ids" {
-  description = "AWS account IDs that will share CloudWatch data into the monitoring account"
-  type        = list(string)
-  default     = ["444455556666", "777788889999"]
-}
-
 variable "org_id" {
   description = "AWS Organizations ID that source/monitoring accounts belong to"
   type        = string
@@ -46,12 +34,6 @@ variable "grafana_cloud_stack_slug" {
   default     = "example-stack"
 }
 
-variable "firehose_destination_bucket" {
-  description = "Name of the S3 bucket that Metric Streams data is delivered to"
-  type        = string
-  default     = "example-metric-streams-bucket"
-}
-
 variable "grafana_cloud_access_policy_token" {
   description = "Grafana Cloud access policy token (set via env var TF_VAR_grafana_cloud_access_policy_token)"
   type        = string
@@ -64,6 +46,12 @@ variable "grafana_aws_external_id" {
   type        = string
   sensitive   = true
   default     = ""
+}
+
+variable "grafana_labs_aws_account_id" {
+  description = "Grafana Labs' own published AWS account ID used for the CloudWatch Assume Role integration (not your account) — see https://grafana.com/docs/grafana/latest/datasources/aws-cloudwatch/aws-authentication/"
+  type        = string
+  default     = "" # fill in from Grafana's docs/portal for your stack/region
 }
 
 # --- Real-infra switches -----------------------------------------------
@@ -92,6 +80,23 @@ variable "demo_account_parent_ou_id" {
   description = "Organizational Unit ID the new account is created under (only used if create_account = true)"
   type        = string
   default     = ""
+}
+
+# Populated *after* phase 1 (creating the accounts) completes — see
+# README's two-phase apply instructions. Terraform provider blocks are
+# configured before the resource graph resolves, so a provider's assume_role
+# cannot reference an aws_organizations_account ID created in the same
+# apply; this variable breaks that cycle by letting you paste in the real
+# account IDs once they exist, for the second apply that actually populates
+# the accounts.
+variable "demo_account_ids" {
+  description = "Real AWS account IDs for account_a/b/c, filled in after phase 1 (account creation) completes. Leave empty for phase 1."
+  type        = map(string)
+  default = {
+    account_a = ""
+    account_b = ""
+    account_c = ""
+  }
 }
 
 variable "create_ec2_instances" {
