@@ -167,6 +167,38 @@ resource missing an explicit `provider` doesn't fail — it silently uses
 whatever the default provider happens to be, which may not be any account you
 intended.
 
+## Correct IAM roles on both sides are not sufficient — the monitoring account still needs to explicitly discover/link each source account
+
+After fixing the provider bug above, `account_b` showed up fine in the
+monitoring account's cross-account console view, but `account_c` never did —
+despite both source accounts having byte-for-byte identical
+`CloudWatch-CrossAccountSharingRole` trust policies and attachments. Checked
+CloudTrail in both `account_c` and `account_a` for any `AssumeRole` activity
+between them: **zero** attempts, in either direction, over an hour spanning
+well after the role existed. This ruled out a permissions/SCP denial (which
+would show up as a *denied* CloudTrail event, not a total absence of any
+attempt) — `cloudwatch-crossaccount.amazonaws.com` simply never tried to
+reach `account_c`.
+
+Root cause: this legacy feature's account list is **service-side state that
+the IAM trust policy alone does not populate**. The trust policy only
+determines whether an assume-role *would* succeed if attempted — something
+still has to register `account_c` with the monitoring account's "Monitoring
+account configuration" so CloudWatch knows to attempt it in the first place.
+That registration step has no Terraform resource in the `hashicorp/aws`
+provider (only OAM's sink/link model does) and no CLI verb either — it's a
+console-only, click-through flow (CloudWatch → Settings → Monitoring account
+configuration → add/link account). `account_b` most likely got linked this
+way at some earlier point during development and was never re-derived from
+Terraform.
+
+**Takeaway:** for this specific approach, "the IAM roles are correct" and
+"the console will show the data" are two different claims — don't assume the
+second follows from the first. And it's a real, permanent limitation of this
+approach, not just a demo gap: unlike OAM (fully declarative, sink + link),
+this feature's account-to-account linking has no infrastructure-as-code
+story at all.
+
 ## An org-wide SCP region restriction can deny a call with no obvious connection to region
 
 Hit `cloudwatch:ListDashboards` denied with `explicit deny in a service
