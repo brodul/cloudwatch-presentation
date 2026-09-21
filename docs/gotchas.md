@@ -167,37 +167,70 @@ resource missing an explicit `provider` doesn't fail — it silently uses
 whatever the default provider happens to be, which may not be any account you
 intended.
 
-## Correct IAM roles on both sides are not sufficient — the monitoring account still needs to explicitly discover/link each source account
+## Two different "monitoring account" screens look almost identical and are easy to conflate
 
-After fixing the provider bug above, `account_b` showed up fine in the
-monitoring account's cross-account console view, but `account_c` never did —
-despite both source accounts having byte-for-byte identical
-`CloudWatch-CrossAccountSharingRole` trust policies and attachments. Checked
-CloudTrail in both `account_c` and `account_a` for any `AssumeRole` activity
-between them: **zero** attempts, in either direction, over an hour spanning
-well after the role existed. This ruled out a permissions/SCP denial (which
-would show up as a *denied* CloudTrail event, not a total absence of any
-attempt) — `cloudwatch-crossaccount.amazonaws.com` simply never tried to
-reach `account_c`.
+After fixing the provider bug above, `account_c` still didn't show up in the
+console, and the natural next place to look was CloudWatch → Settings →
+"Monitoring account" — which showed only `account_b` linked, with a "Stop
+cross account monitoring" button and a "Configuration policy" tab containing
+an `oam:CreateLink`/`oam:UpdateLink` policy. That's a strong signal this page
+is **OAM's (Approach 1's) monitoring-account view**, not this feature's —
+confirmed by matching the policy JSON directly against
+`aws_oam_sink_policy.monitoring` in `terraform/oam.tf`. `account_c` was
+correctly absent there since it deliberately has no OAM link (different
+region than the sink). Chasing an "add account_c" action on this screen
+would have been chasing the wrong feature entirely — the OAM sink literally
+cannot list `account_c` since OAM sinks/links can't cross regions.
 
-Root cause: this legacy feature's account list is **service-side state that
-the IAM trust policy alone does not populate**. The trust policy only
-determines whether an assume-role *would* succeed if attempted — something
-still has to register `account_c` with the monitoring account's "Monitoring
-account configuration" so CloudWatch knows to attempt it in the first place.
-That registration step has no Terraform resource in the `hashicorp/aws`
-provider (only OAM's sink/link model does) and no CLI verb either — it's a
-console-only, click-through flow (CloudWatch → Settings → Monitoring account
-configuration → add/link account). `account_b` most likely got linked this
-way at some earlier point during development and was never re-derived from
-Terraform.
+This feature's actual settings live at CloudWatch → Settings →
+**"Cross-account cross-region"** → Configure → "View cross-account
+cross-region" — a separate page, easy to miss since both pages use the
+words "monitoring account."
 
-**Takeaway:** for this specific approach, "the IAM roles are correct" and
-"the console will show the data" are two different claims — don't assume the
-second follows from the first. And it's a real, permanent limitation of this
-approach, not just a demo gap: unlike OAM (fully declarative, sink + link),
-this feature's account-to-account linking has no infrastructure-as-code
-story at all.
+Also found on that correct page: CloudTrail confirmed `ServiceRoleForCloudWatchCrossAccountV2`
+existed in **two places** — one created by Terraform (`monitoring_service_role`
+in `cross-account-console.tf`, itself missing an explicit `provider`, so it
+landed in the org's management account, same bug pattern as above) and a
+second one AWS created automatically in `account_a` when the console setup
+wizard was run there directly. The Terraform-managed copy is dead/unused;
+the wizard-created one in `account_a` is what's actually working.
+
+**Takeaway:** AWS's console reuses "monitoring account" terminology for two
+unrelated features (OAM and this legacy cross-account console feature) with
+visually similar settings pages. When cross-referencing a Terraform resource
+against what the console shows, match the exact IAM policy content, not just
+the page title.
+
+## The account selector, the org-account-list feature, and "automatic dashboards" sharing are three separate opt-ins
+
+Once on the right settings page (see above), enabling "View cross-account
+cross-region" still isn't one on/off switch — it has its own sub-choices,
+each independently gated:
+
+- **Account selector type**: "AWS Organization account selector" needs a
+  *separate* IAM role in the org's **management account** (not the
+  monitoring account), provisioned only via a console-launched
+  CloudFormation stack — AWS's own docs aren't even internally consistent on
+  that role's name (`CloudWatch-CrossAccountListAccountsRole` in one section,
+  `CloudWatch-CrossAccountSharing-ListAccountsRole` in another), a sign it's
+  not meant to be hand-authored in Terraform. **"Custom account selector"**
+  sidesteps this entirely — it just needs a manually-entered list of account
+  IDs, no extra role, and immediately worked.
+- **CloudWatch Automatic Dashboards** (the EC2/Lambda/etc. built-in fleet
+  overview dashboards) require their own explicit checkbox on the *sharing*
+  account's side ("Include CloudWatch automatic dashboards"), separate from
+  the base `CloudWatchReadOnlyAccess` policy this repo's
+  `cross_account_sharing_b`/`_c` roles attach. Without it, the automatic
+  dashboard shows a **"Cross account unavailable"** badge and every panel
+  reports "No data available" — while plain **Metrics → All metrics**
+  browsing for the exact same underlying data (e.g. `AWS/EC2`
+  `CPUUtilization`) works fine, because that path only needs the base
+  read-only grant.
+
+**Takeaway:** when an account/region *is* selectable but a specific view
+still shows no data, check for a feature-specific badge (like "Cross account
+unavailable") before assuming the whole cross-account setup is broken — it
+may be one narrower, separately-gated sub-feature, not the base sharing role.
 
 ## An org-wide SCP region restriction can deny a call with no obvious connection to region
 

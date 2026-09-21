@@ -161,11 +161,11 @@ Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole` /
 - ✅ Metrics/dashboards, **automatic cross-region graphing**, no per-region setup
 - ❌ No logs
 - ❌ No cross-account/cross-region alarms — view only
-- ❌ **No IaC for account linking** — the IAM roles are declarative, but each
-  source account still needs a manual console click to actually appear
+- ⚠️ A few sub-features (automatic dashboards, org-wide account selector) need
+  extra setup beyond the base IAM roles
 
 Simplest option if all you need is "one dashboard, many accounts and regions, metrics
-only" — accept the manual per-account linking step.
+only."
 
 ---
 
@@ -207,30 +207,34 @@ This is the one approach with **no metrics panel** — on purpose.
   and `account_c`
 - The merged view only ever renders **inside the AWS Console itself**
 - No API surface for it — nothing a third-party tool can call
-- Correct IAM roles alone weren't enough: linking each source account into
-  the monitoring account's console is a **manual, non-Terraform-able** step
+- All 3 accounts confirmed live in the console: `account_a`, `account_b`
+  (us-east-1), and `account_c` (us-west-2) — cross-region graphing, for real
 
 <aside class="notes">
-The console view lives at CloudWatch → Settings → Monitoring account configuration.
-Grafana's CloudWatch data source always queries via its own assumed role, so there's
-no API surface for "the monitoring-account merged view" it could hit. Good moment to
-flip to the actual AWS Console and show the real feature, since Grafana can't. This is
+The console view lives at CloudWatch → Settings → "Cross-account cross-region" (not the
+similarly-named OAM "Monitoring account" page — the two are easy to conflate since both
+use "monitoring account" terminology and have similar-looking settings screens; verified
+by diffing the actual IAM policy JSON shown on each against the corresponding Terraform
+resource). Grafana's CloudWatch data source always queries via its own assumed role, so
+there's no API surface for "the monitoring-account merged view" it could hit. Good moment
+to flip to the actual AWS Console and show the real feature, since Grafana can't. This is
 an honest limitation, not a gap in the demo.
 
-Three real gotchas hit wiring this up live, worth mentioning if there's time: (1) the
-sharing role resource originally had no explicit provider, so it silently deployed to
-the org's management account instead of account_b/account_c — the console only showed
-account_a's own region until that was fixed. (2) even after that fix, account_c still
-didn't appear — CloudTrail in both accounts showed zero AssumeRole attempts between
-them at all, proving this isn't a permissions problem: the monitoring account's console
-config needs each source account explicitly linked/discovered as its own step, which
-has no Terraform resource or CLI verb, only a console click-through. account_b likely
-got linked this way earlier in development and was never captured in code. (3) an
-org-wide SCP restricting requests to
-specific regions threw an explicit-deny on cloudwatch:ListDashboards while the console's
-region selector was set to a region outside that allow-list — switching the selector
-back to us-east-1 (an allowed region) resolved it. Both are "the demo looked broken but
-the approach wasn't" moments, good material for the gotchas doc.
+Real gotchas hit wiring this up live, worth mentioning if there's time: (1) the sharing
+role resource originally had no explicit provider, so it silently deployed to the org's
+management account instead of account_b/account_c — the console only showed account_a's
+own region until that was fixed. (2) an org-wide SCP restricting requests to specific
+regions threw an explicit-deny on cloudwatch:ListDashboards while the console's region
+selector was set to a region outside that allow-list — switching back to us-east-1
+resolved it. (3) the "AWS Organization account selector" option needs a separate,
+CFN-only role in the management account; switched to "Custom account selector" instead
+(manually list account IDs) and it worked immediately, no extra role needed. (4) the
+CloudWatch automatic-dashboards view (the built-in EC2 fleet dashboard) showed "Cross
+account unavailable" and "No data" even with everything else working — that view needs
+its own explicit "Include CloudWatch automatic dashboards" sharing checkbox, separate
+from the base CloudWatchReadOnlyAccess grant; plain Metrics → All metrics browsing for
+the same underlying CPUUtilization data worked the whole time. All four are "the demo
+looked broken but the approach wasn't" moments — full detail in docs/gotchas.md.
 </aside>
 
 ---
