@@ -297,6 +297,46 @@ calling out as the "if you build dashboards by hand, watch for this" takeaway.
 
 ---
 
+## What does this cost?
+
+Real Cost Explorer numbers, yesterday, all 3 accounts combined — **by approach**:
+
+| Approach | Cost | Why |
+|---|---|---|
+| 1: OAM | **$0** | metadata-only reads, no metering |
+| 2: Console feature | **$0** | assumed-role reads, no metering |
+| 3: Metric Streams | **$0.38 CloudWatch + $0.02 Firehose/S3** | billed per metric update, continuously |
+| EC2 instances (all 3) | **$0.016** | t3.micro, mostly free tier — only EBS is metered |
+
+**≈ $0.41/day → ~$12/month**, and it's ~95% one approach.
+
+You can filter what a Metric Stream actually sends: `include_filter` /
+`exclude_filter` blocks by namespace (and optionally metric name) — this demo's
+`aws_cloudwatch_metric_stream` has neither, so it streams **every metric, every
+namespace**, in each account.
+
+<aside class="notes">
+Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
+— the only two CloudWatch usage-type line items yesterday were USE1-CW:MetricStreamUsage
+($0.26) and USW2-CW:MetricStreamUsage ($0.12), ~86k + ~41k "Metric Update"s respectively.
+That's Approach 3 exclusively — OAM sinks/links and the console cross-account IAM roles
+generate zero metered usage, they're just read paths through existing metric storage.
+Filtering note: terraform/modules/metric-stream/main.tf's aws_cloudwatch_metric_stream
+resource has no include_filter/exclude_filter, so every namespace (EC2, Lambda, RDS, S3,
+whatever else exists in the account) streams out continuously, even though the dashboards
+only ever query AWS/EC2 CPUUtilization. Scoping it down to
+`include_filter { namespace = "AWS/EC2" }` — or even to specific metric_names — would cut
+the ~127k daily metric updates to a small fraction of that, with a proportional cost drop.
+Left unfiltered here deliberately, to make the "cost scales with what you stream, not with
+how many accounts you aggregate" point concretely measurable rather than theoretical.
+Firehose/S3 costs are the same story: that's the export pipeline underneath Metric Streams.
+The takeaway for anyone budgeting this: OAM and the console feature are effectively free to
+turn on: cost scales with what you *stream out*, not with how many accounts/regions you
+aggregate for viewing.
+</aside>
+
+---
+
 ## Reference repo
 
 Terraform, docs, this deck, and now a **working real-infra path**:
