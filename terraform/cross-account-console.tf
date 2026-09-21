@@ -69,6 +69,16 @@ resource "aws_iam_role_policy_attachment" "cross_account_sharing_readonly_c" {
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 
+# NOTE: this resource has no `provider`, so it uses the default (un-aliased)
+# provider — the org's management account, not account_a. That's a bug: the
+# real monitoring account for this demo is account_a, and its own copy of
+# this role was actually created by AWS itself when the cross-account
+# console setup wizard was run there directly (with a SourceAccount/SourceArn
+# condition Terraform doesn't generate) — this resource is stale/unused.
+# Left in place, unfixed, as a second live example of the same "no explicit
+# provider" mistake documented in docs/gotchas.md; not corrected to avoid
+# fighting the wizard-created role already in account_a.
+#
 # Declared in the monitoring account; lets CloudWatch assume the sharing
 # role in any account in the same organization.
 resource "aws_iam_role" "monitoring_service_role" {
@@ -108,3 +118,21 @@ resource "aws_iam_role" "monitoring_service_role" {
     })
   }
 }
+
+# NOT managed here on purpose. The "AWS Organization account selector"
+# option (CloudWatch Settings → View cross-account cross-region) needs a
+# separate org-account-list role in the org's *management* account — but per
+# AWS's own docs, this is provisioned exclusively via a console-launched
+# CloudFormation template (CloudWatch Settings, in the management account →
+# "Grant permission to view the list of accounts in the organization" →
+# Configure → Specific accounts → Launch CloudFormation template), not a
+# documented/stable IAM shape meant to be hand-authored. The resulting role
+# is named CloudWatch-CrossAccountListAccountsRole (or
+# CloudWatch-CrossAccountSharing-ListAccountsRole per the doc's cleanup
+# section — AWS's own docs aren't even consistent on the name), which is a
+# signal it's implementation detail, not public API to pin in Terraform.
+# See https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Cross-Account-Cross-Region.html#cross-account-and-AWS-organizations.
+#
+# If you don't need the org dropdown, use the "Account Id Input" or "Custom
+# account selector" option instead when enabling the monitoring account —
+# both work with only the roles Terraform already manages above.
