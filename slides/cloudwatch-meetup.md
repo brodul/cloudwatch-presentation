@@ -61,6 +61,30 @@ N accounts × M regions = fragmented visibility
 
 ---
 
+## The demo setup
+
+3 real AWS accounts, 2 regions, 1 EC2 instance each:
+
+| Account | Region | Role | Instance |
+|---|---|---|---|
+| `account_a` | us-east-1 | monitoring account | `i-01c26eedadfd81489` |
+| `account_b` | us-east-1 | source, same region | `i-0d8eb892991961cac` |
+| `account_c` | us-west-2 | source, different region | `i-0471d5a973730b195` |
+
+`account_a` + `account_b` share a region on purpose (proves real cross-account
+linking); `account_c` sits elsewhere on purpose (proves the region boundary).
+
+<aside class="notes">
+This is the fixture every "live" slide refers back to. Each account runs one small EC2
+instance publishing CPUUtilization — that's the metric all 3 approaches are shown pulling
+across the account/region boundary. account_c's separate region is the one that exposes
+OAM's "sinks/links can't cross regions" limitation later, and it's also the account left
+out of Approach 2's automatic cross-region graphing story if the console feature isn't
+configured for it too. Real account IDs deliberately not shown on screen.
+</aside>
+
+---
+
 ## Approach 1: OAM
 
 **Observability Access Manager** — AWS's current recommended default
