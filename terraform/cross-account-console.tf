@@ -3,10 +3,17 @@
 # metrics/dashboards/alarms (view-only) + X-Ray trace map only, no logs, and
 # no cross-account/region alarms.
 
-# Declared in each sharing (source) account; trusts the monitoring account
-# (here, the whole Organization) to assume this role read-only.
-resource "aws_iam_role" "cross_account_sharing" {
-  name = "CloudWatch-CrossAccountSharingRole"
+# Declared in each sharing (source) account — account_b and account_c, not
+# account_a itself, since account_a is the monitoring account here and has
+# nothing to share into itself. Trusts the monitoring account (here, the
+# whole Organization) to assume this role read-only.
+#
+# Must be created via each source account's own provider alias — without an
+# explicit `provider`, this would default to the un-aliased provider (the
+# org's management account), which is not one of the 3 demo accounts at all.
+resource "aws_iam_role" "cross_account_sharing_b" {
+  provider = aws.account_b
+  name     = "CloudWatch-CrossAccountSharingRole"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -27,8 +34,38 @@ resource "aws_iam_role" "cross_account_sharing" {
   })
 }
 
-resource "aws_iam_role_policy_attachment" "cross_account_sharing_readonly" {
-  role       = aws_iam_role.cross_account_sharing.name
+resource "aws_iam_role_policy_attachment" "cross_account_sharing_readonly_b" {
+  provider   = aws.account_b
+  role       = aws_iam_role.cross_account_sharing_b.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
+}
+
+resource "aws_iam_role" "cross_account_sharing_c" {
+  provider = aws.account_c
+  name     = "CloudWatch-CrossAccountSharingRole"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          AWS = "*"
+        }
+        Action = "sts:AssumeRole"
+        Condition = {
+          StringEquals = {
+            "aws:PrincipalOrgID" = data.aws_organizations_organization.this.id
+          }
+        }
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "cross_account_sharing_readonly_c" {
+  provider   = aws.account_c
+  role       = aws_iam_role.cross_account_sharing_c.name
   policy_arn = "arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess"
 }
 

@@ -145,6 +145,41 @@ with a healthy datasource and a working direct API call, suspect missing
 editor-only fields before suspecting auth, data, or caching — and the fastest
 way to find them is to let the real UI resave the panel and diff the JSON.
 
+## A provider-less resource silently lands in the wrong AWS account
+
+`aws_iam_role.cross_account_sharing` in `terraform/cross-account-console.tf`
+was declared without a `provider` argument, meaning it used the module's
+default (un-aliased) provider — which per `providers.tf` targets the org's
+**management account**, not any of the 3 demo accounts. Terraform applied
+without error and the role existed, so nothing looked broken; it just wasn't
+anywhere a source account (`account_b`, `account_c`) could ever assume into.
+
+Symptom: the CloudWatch console's cross-account/cross-region metrics browser,
+logged in as the monitoring account, only ever showed `account_a`'s own
+region (`us-east-1`) — `account_c`'s `us-west-2` metrics never appeared, with
+no error anywhere, because there was no sharing role in `account_c` (or
+`account_b`) to assume in the first place.
+
+Fixed by splitting the single resource into `cross_account_sharing_b` /
+`cross_account_sharing_c`, each with an explicit `provider = aws.account_b` /
+`aws.account_c`. **Takeaway:** in a multi-provider Terraform config, a
+resource missing an explicit `provider` doesn't fail — it silently uses
+whatever the default provider happens to be, which may not be any account you
+intended.
+
+## An org-wide SCP region restriction can deny a call with no obvious connection to region
+
+Hit `cloudwatch:ListDashboards` denied with `explicit deny in a service
+control policy` while browsing the merged cross-account console view. The SCP
+(`RestrictRegions`) denies any request whose `aws:RequestedRegion` isn't in an
+allow-list (`eu-central-1`, `us-west-2`, `us-east-1`) — the deny had nothing
+to do with IAM permissions or the cross-account role chain at all. The
+console's region selector was simply set to a region outside that allow-list
+at the time. Switching it back to `us-east-1` resolved it immediately.
+**Takeaway:** an explicit-deny SCP error can look identical to a missing-IAM-
+permission error; check the requested region against any org-level region
+restriction before debugging the role/policy chain.
+
 ## AWS credentials in an agent/CI session are not one shared thing
 
 Grafana MCP access and AWS CLI/Terraform access are two completely unrelated

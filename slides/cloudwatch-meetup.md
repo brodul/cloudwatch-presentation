@@ -201,7 +201,8 @@ Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
 
 This is the one approach with **no metrics panel** — on purpose.
 
-- The IAM roles exist (`terraform/cross-account-console.tf`) and work
+- The IAM roles (`terraform/cross-account-console.tf`) share into `account_b`
+  and `account_c`
 - The merged view only ever renders **inside the AWS Console itself**
 - No API surface for it — nothing a third-party tool can call
 
@@ -211,6 +212,15 @@ Grafana's CloudWatch data source always queries via its own assumed role, so the
 no API surface for "the monitoring-account merged view" it could hit. Good moment to
 flip to the actual AWS Console and show the real feature, since Grafana can't. This is
 an honest limitation, not a gap in the demo.
+
+Two real gotchas hit wiring this up live, worth mentioning if there's time: (1) the
+sharing role resource originally had no explicit provider, so it silently deployed to
+the org's management account instead of account_b/account_c — the console only showed
+account_a's own region until that was fixed. (2) an org-wide SCP restricting requests to
+specific regions threw an explicit-deny on cloudwatch:ListDashboards while the console's
+region selector was set to a region outside that allow-list — switching the selector
+back to us-east-1 (an allowed region) resolved it. Both are "the demo looked broken but
+the approach wasn't" moments, good material for the gotchas doc.
 </aside>
 
 ---
