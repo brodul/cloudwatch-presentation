@@ -4,6 +4,10 @@ Reference material — and a real, working demo — for combining Amazon CloudWa
 across multiple AWS accounts and multiple regions, shipped into Grafana Cloud three
 different ways. Built for a 15-minute AWS meetup talk and a companion blog post.
 
+📊 **[View the rendered slides](https://brodul.github.io/cloudwatch-presentation/)** —
+the deck, published to GitHub Pages (also linked by the QR code on its title and closing
+slides).
+
 ## What this repo can do
 
 **By default it's inert.** Account IDs, org IDs, and Grafana stack IDs are all Terraform
@@ -114,6 +118,13 @@ that lifecycle block removed first or handling manually via the Organizations co
   - `grafana.tf` — Grafana Cloud data sources, access policy tokens, and dashboards
 
 ## Running / viewing the slides
+
+The deck is published to GitHub Pages and rebuilt on every push to `main` that
+touches `slides/`:
+
+**<https://brodul.github.io/cloudwatch-presentation/>**
+
+To preview it locally instead:
 
 ```
 npx reveal-md slides/cloudwatch-meetup.md
