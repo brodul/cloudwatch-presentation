@@ -24,6 +24,19 @@
   font-family: monospace;
   word-break: break-all;
 }
+/* Keep the wide "demo setup" table (long monospace instance IDs) on one slide. */
+.reveal .demo-setup table {
+  font-size: 0.58em;
+  width: 100%;
+}
+.reveal .demo-setup th,
+.reveal .demo-setup td {
+  padding: 0.2em 0.5em;
+}
+.reveal .demo-setup td code {
+  font-size: 0.95em;
+  white-space: nowrap;
+}
 </style>
 
 # Combining CloudWatch
@@ -102,6 +115,8 @@ N accounts × M regions = fragmented visibility
 ---
 
 ## The demo setup
+
+<!-- .slide: class="demo-setup" -->
 
 3 real AWS accounts, 2 regions, 1 EC2 instance each:
 
