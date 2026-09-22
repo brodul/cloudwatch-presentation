@@ -432,21 +432,18 @@ calling out as the "if you build dashboards by hand, watch for this" takeaway.
 
 ## What does this cost?
 
+<!-- .slide: class="tight" -->
+
 Real Cost Explorer numbers, yesterday, all 3 accounts combined — **by approach**:
 
 | Approach | Cost | Why |
 |---|---|---|
 | 1: OAM | **$0** | metadata-only reads, no metering |
 | 2: Console feature | **$0** | assumed-role reads, no metering |
-| 3: Metric Streams | **$0.38 CloudWatch + $0.02 Firehose/S3** | billed per metric update, continuously |
-| EC2 instances (all 3) | **$0.016** | t3.micro, mostly free tier — only EBS is metered |
+| 3: Metric Streams | **$0.38 CW + $0.02 Firehose/S3** | billed per metric update |
+| EC2 (all 3) | **$0.016** | t3.micro, mostly free tier |
 
 **≈ $0.41/day → ~$12/month**, and it's ~95% one approach.
-
-You can filter what a Metric Stream actually sends: `include_filter` /
-`exclude_filter` blocks by namespace (and optionally metric name) — this demo's
-`aws_cloudwatch_metric_stream` has neither, so it streams **every metric, every
-namespace**, in each account.
 
 <aside class="notes">
 Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
@@ -454,6 +451,19 @@ Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SE
 ($0.26) and USW2-CW:MetricStreamUsage ($0.12), ~86k + ~41k "Metric Update"s respectively.
 That's Approach 3 exclusively — OAM sinks/links and the console cross-account IAM roles
 generate zero metered usage, they're just read paths through existing metric storage.
+</aside>
+
+---
+
+## Cost scales with what you stream
+
+You can filter what a Metric Stream sends: `include_filter` / `exclude_filter`
+scope by namespace (and optionally metric name).
+
+This demo's `aws_cloudwatch_metric_stream` has neither, so it streams
+**every metric, every namespace**, in each account.
+
+<aside class="notes">
 Filtering note: terraform/modules/metric-stream/main.tf's aws_cloudwatch_metric_stream
 resource has no include_filter/exclude_filter, so every namespace (EC2, Lambda, RDS, S3,
 whatever else exists in the account) streams out continuously, even though the dashboards
