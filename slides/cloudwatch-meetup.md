@@ -24,6 +24,20 @@
   font-family: monospace;
   word-break: break-all;
 }
+/* Scale down a content-heavy slide so it fits without clipping. reveal.js sizes
+   text in em, so shrinking the section cascades to headings, lists, and code. */
+.reveal section.tight {
+  font-size: 0.72em;
+}
+.reveal section.tight p {
+  margin: 0.4em 0;
+}
+.reveal section.tight ul {
+  margin: 0.25em 0;
+}
+.reveal section.tight li {
+  margin-bottom: 0.3em;
+}
 /* Keep the wide "demo setup" table (long monospace instance IDs) on one slide. */
 .reveal .demo-setup table {
   font-size: 0.58em;
@@ -209,6 +223,8 @@ say so explicitly.
 ---
 
 ## Approach 2: Cross-account, cross-Region console
+
+<!-- .slide: class="tight" -->
 
 Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole` /
 `ServiceRoleForCloudWatchCrossAccountV2`)
