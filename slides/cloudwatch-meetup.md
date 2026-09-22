@@ -24,6 +24,43 @@
   font-family: monospace;
   word-break: break-all;
 }
+/* Let mermaid diagrams fill the slide width so their labels are legible. */
+.reveal .mermaid {
+  width: 100%;
+}
+.reveal .mermaid svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto;
+  max-height: 66vh;
+}
+/* Scale down a content-heavy slide so it fits without clipping. reveal.js sizes
+   text in em, so shrinking the section cascades to headings, lists, and code. */
+.reveal section.tight {
+  font-size: 0.72em;
+}
+.reveal section.tight p {
+  margin: 0.4em 0;
+}
+.reveal section.tight ul {
+  margin: 0.25em 0;
+}
+.reveal section.tight li {
+  margin-bottom: 0.3em;
+}
+/* Keep the wide "demo setup" table (long monospace instance IDs) on one slide. */
+.reveal .demo-setup table {
+  font-size: 0.58em;
+  width: 100%;
+}
+.reveal .demo-setup th,
+.reveal .demo-setup td {
+  padding: 0.2em 0.5em;
+}
+.reveal .demo-setup td code {
+  font-size: 0.95em;
+  white-space: nowrap;
+}
 </style>
 
 # Combining CloudWatch
@@ -102,6 +139,8 @@ N accounts × M regions = fragmented visibility
 ---
 
 ## The demo setup
+
+<!-- .slide: class="demo-setup" -->
 
 3 real AWS accounts, 2 regions, 1 EC2 instance each:
 
@@ -195,6 +234,8 @@ say so explicitly.
 
 ## Approach 2: Cross-account, cross-Region console
 
+<!-- .slide: class="tight" -->
+
 Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole` /
 `ServiceRoleForCloudWatchCrossAccountV2`)
 
@@ -214,19 +255,19 @@ only."
 ```mermaid
 flowchart LR
     subgraph mon["Monitoring account"]
-        role1["ServiceRoleForCloudWatchCrossAccountV2"]
+        role1["ServiceRoleFor<br/>CloudWatchCrossAccountV2"]
         console["CloudWatch Console<br/>(merged view)"]
     end
     subgraph src1["Source account, region A"]
-        share1["CloudWatch-CrossAccountSharingRole"]
+        share1["CloudWatch-<br/>CrossAccountSharingRole"]
     end
     subgraph src2["Source account, region B"]
-        share2["CloudWatch-CrossAccountSharingRole"]
+        share2["CloudWatch-<br/>CrossAccountSharingRole"]
     end
     role1 -->|sts:AssumeRole| share1
     role1 -->|sts:AssumeRole| share2
-    share1 -->|metrics + dashboards, view only| console
-    share2 -->|metrics + dashboards, view only| console
+    share1 -->|"metrics + dashboards<br/>(view only)"| console
+    share2 -->|"metrics + dashboards<br/>(view only)"| console
 ```
 
 <aside class="notes">
@@ -238,6 +279,8 @@ here versus OAM. But the merged result only exists inside this console UI.
 ---
 
 ## Approach 2, live — or rather, not
+
+<!-- .slide: class="tight" -->
 
 Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
 
@@ -362,11 +405,13 @@ feeding Grafana externally.
 
 ## What actually broke
 
-The concepts are clean; the implementation had sharp edges. A sample:
+<!-- .slide: class="tight" -->
 
-- Grafana's CloudWatch auth needs an exact, undocumented-feeling `authType`
-- OAM discovery needs IAM permissions beyond `CloudWatchReadOnlyAccess`
-- CloudWatch's OTLP→Prometheus metric names aren't a mechanical transform
+The concepts are clean; the implementation had sharp edges:
+
+- Grafana's CloudWatch auth needs an exact `authType`
+- OAM discovery needs IAM perms beyond `CloudWatchReadOnlyAccess`
+- OTLP→Prometheus metric names aren't a mechanical transform
 - Hand-built dashboard JSON can be backend-valid but **frontend-inert**
 
 Full list: `docs/gotchas.md`
@@ -387,21 +432,18 @@ calling out as the "if you build dashboards by hand, watch for this" takeaway.
 
 ## What does this cost?
 
+<!-- .slide: class="tight" -->
+
 Real Cost Explorer numbers, yesterday, all 3 accounts combined — **by approach**:
 
 | Approach | Cost | Why |
 |---|---|---|
 | 1: OAM | **$0** | metadata-only reads, no metering |
 | 2: Console feature | **$0** | assumed-role reads, no metering |
-| 3: Metric Streams | **$0.38 CloudWatch + $0.02 Firehose/S3** | billed per metric update, continuously |
-| EC2 instances (all 3) | **$0.016** | t3.micro, mostly free tier — only EBS is metered |
+| 3: Metric Streams | **$0.38 CW + $0.02 Firehose/S3** | billed per metric update |
+| EC2 (all 3) | **$0.016** | t3.micro, mostly free tier |
 
 **≈ $0.41/day → ~$12/month**, and it's ~95% one approach.
-
-You can filter what a Metric Stream actually sends: `include_filter` /
-`exclude_filter` blocks by namespace (and optionally metric name) — this demo's
-`aws_cloudwatch_metric_stream` has neither, so it streams **every metric, every
-namespace**, in each account.
 
 <aside class="notes">
 Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
@@ -409,6 +451,19 @@ Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SE
 ($0.26) and USW2-CW:MetricStreamUsage ($0.12), ~86k + ~41k "Metric Update"s respectively.
 That's Approach 3 exclusively — OAM sinks/links and the console cross-account IAM roles
 generate zero metered usage, they're just read paths through existing metric storage.
+</aside>
+
+---
+
+## Cost scales with what you stream
+
+You can filter what a Metric Stream sends: `include_filter` / `exclude_filter`
+scope by namespace (and optionally metric name).
+
+This demo's `aws_cloudwatch_metric_stream` has neither, so it streams
+**every metric, every namespace**, in each account.
+
+<aside class="notes">
 Filtering note: terraform/modules/metric-stream/main.tf's aws_cloudwatch_metric_stream
 resource has no include_filter/exclude_filter, so every namespace (EC2, Lambda, RDS, S3,
 whatever else exists in the account) streams out continuously, even though the dashboards
