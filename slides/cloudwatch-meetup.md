@@ -41,12 +41,12 @@ Grafana dashboards, all wired up and working end to end.
 
 ## Follow along
 
-<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
-<small class="qr-caption">Scan to open these slides on your own device</small>
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to the reference repo" />
+<small class="qr-caption">Scan for the repo — slides, Terraform, and docs</small>
 
 <aside class="notes">
-Give people a few seconds to scan before you start. The QR points at the GitHub Pages
-build of this deck, so they can follow along and click any link themselves.
+Give people a few seconds to scan before you start. The QR points at the GitHub repo, so
+they can follow along in the source and the deck lives right there in slides/.
 </aside>
 
 ---
@@ -440,10 +440,10 @@ Thanks! Questions?
 
 ## Take it home
 
-<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
-<small class="qr-caption">Slides, Terraform, and docs — all here</small>
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to the reference repo" />
+<small class="qr-caption">The whole repo — slides, Terraform, and docs</small>
 
 <aside class="notes">
-Leave this up during Q&A so people can grab the deck and the repo on their way out.
+Leave this up during Q&A so people can grab the repo on their way out.
 Same URL as the follow-along QR at the start.
 </aside>
