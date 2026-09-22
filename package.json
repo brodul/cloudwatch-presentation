@@ -1,9 +1,13 @@
 {
   "scripts": {
+    "qr": "node slides/scripts/generate-qr.mjs",
+    "preslides": "npm run qr",
     "slides": "reveal-md slides/cloudwatch-meetup.md --scripts node_modules/mermaid/dist/mermaid.min.js,slides/assets/mermaid-init.js",
-    "slides:static": "reveal-md slides/cloudwatch-meetup.md --scripts node_modules/mermaid/dist/mermaid.min.js,slides/assets/mermaid-init.js --static docs/slides-render"
+    "preslides:static": "npm run qr",
+    "slides:static": "reveal-md slides/cloudwatch-meetup.md --scripts node_modules/mermaid/dist/mermaid.min.js,slides/assets/mermaid-init.js --static docs/slides-render --static-dirs slides/assets"
   },
   "devDependencies": {
+    "qrcode": "^1.5.4",
     "reveal-md": "^6.1.2"
   }
 }
