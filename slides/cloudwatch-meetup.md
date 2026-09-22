@@ -24,6 +24,16 @@
   font-family: monospace;
   word-break: break-all;
 }
+/* Let mermaid diagrams fill the slide width so their labels are legible. */
+.reveal .mermaid {
+  width: 100%;
+}
+.reveal .mermaid svg {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: auto;
+  max-height: 66vh;
+}
 /* Scale down a content-heavy slide so it fits without clipping. reveal.js sizes
    text in em, so shrinking the section cascades to headings, lists, and code. */
 .reveal section.tight {
@@ -245,19 +255,19 @@ only."
 ```mermaid
 flowchart LR
     subgraph mon["Monitoring account"]
-        role1["ServiceRoleForCloudWatchCrossAccountV2"]
+        role1["ServiceRoleFor<br/>CloudWatchCrossAccountV2"]
         console["CloudWatch Console<br/>(merged view)"]
     end
     subgraph src1["Source account, region A"]
-        share1["CloudWatch-CrossAccountSharingRole"]
+        share1["CloudWatch-<br/>CrossAccountSharingRole"]
     end
     subgraph src2["Source account, region B"]
-        share2["CloudWatch-CrossAccountSharingRole"]
+        share2["CloudWatch-<br/>CrossAccountSharingRole"]
     end
     role1 -->|sts:AssumeRole| share1
     role1 -->|sts:AssumeRole| share2
-    share1 -->|metrics + dashboards, view only| console
-    share2 -->|metrics + dashboards, view only| console
+    share1 -->|"metrics + dashboards<br/>(view only)"| console
+    share2 -->|"metrics + dashboards<br/>(view only)"| console
 ```
 
 <aside class="notes">
@@ -269,6 +279,8 @@ here versus OAM. But the merged result only exists inside this console UI.
 ---
 
 ## Approach 2, live — or rather, not
+
+<!-- .slide: class="tight" -->
 
 Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
 
@@ -393,11 +405,13 @@ feeding Grafana externally.
 
 ## What actually broke
 
-The concepts are clean; the implementation had sharp edges. A sample:
+<!-- .slide: class="tight" -->
 
-- Grafana's CloudWatch auth needs an exact, undocumented-feeling `authType`
-- OAM discovery needs IAM permissions beyond `CloudWatchReadOnlyAccess`
-- CloudWatch's OTLP→Prometheus metric names aren't a mechanical transform
+The concepts are clean; the implementation had sharp edges:
+
+- Grafana's CloudWatch auth needs an exact `authType`
+- OAM discovery needs IAM perms beyond `CloudWatchReadOnlyAccess`
+- OTLP→Prometheus metric names aren't a mechanical transform
 - Hand-built dashboard JSON can be backend-valid but **frontend-inert**
 
 Full list: `docs/gotchas.md`
