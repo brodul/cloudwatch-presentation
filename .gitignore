@@ -6,3 +6,6 @@ tfplan*
 .env
 node_modules/
 docs/slides-render/
+
+# Generated at build time by slides/scripts/generate-qr.mjs
+slides/assets/qr-code.svg

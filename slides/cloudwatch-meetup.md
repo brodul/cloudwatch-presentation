@@ -1,7 +1,29 @@
+<style>
+.reveal .qr-code {
+  display: block;
+  width: 200px;
+  height: 200px;
+  margin: 0.6em auto 0.2em;
+  padding: 10px;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: none;
+  border: none;
+}
+.reveal .qr-caption {
+  display: block;
+  text-align: center;
+  opacity: 0.75;
+}
+</style>
+
 # Combining CloudWatch
 ## Across Accounts and Regions
 
 <small>An AWS meetup talk</small>
+
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
+<small class="qr-caption">Scan to open these slides</small>
 
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
@@ -393,5 +415,8 @@ Terraform, docs, this deck, and now a **working real-infra path**:
 - Illustrative path still available — reads org context via `data` sources,
   provisions nothing until you opt in (see `README.md` for the gate)
 - Adapt the resource blocks to your own environment before applying
+
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
+<small class="qr-caption">Scan to take these slides home</small>
 
 Thanks! Questions?
