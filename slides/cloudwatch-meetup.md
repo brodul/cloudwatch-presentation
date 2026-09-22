@@ -1,12 +1,14 @@
 <style>
 .reveal .qr-code {
   display: block;
-  width: 200px;
-  height: 200px;
-  margin: 0.6em auto 0.2em;
-  padding: 10px;
+  width: 380px;
+  height: 380px;
+  max-width: 60vh;
+  max-height: 60vh;
+  margin: 0.4em auto 0.2em;
+  padding: 16px;
   background: #fff;
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: none;
   border: none;
 }
@@ -15,6 +17,13 @@
   text-align: center;
   opacity: 0.75;
 }
+.reveal .qr-url {
+  display: block;
+  text-align: center;
+  opacity: 0.6;
+  font-family: monospace;
+  word-break: break-all;
+}
 </style>
 
 # Combining CloudWatch
@@ -22,13 +31,22 @@
 
 <small>An AWS meetup talk</small>
 
-<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
-<small class="qr-caption">Scan to open these slides</small>
-
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
 take home. This *is* a live demo now — 3 real AWS accounts, real EC2 instances, real
 Grafana dashboards, all wired up and working end to end.
+</aside>
+
+---
+
+## Follow along
+
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
+<small class="qr-caption">Scan to open these slides on your own device</small>
+
+<aside class="notes">
+Give people a few seconds to scan before you start. The QR points at the GitHub Pages
+build of this deck, so they can follow along and click any link themselves.
 </aside>
 
 ---
@@ -416,7 +434,16 @@ Terraform, docs, this deck, and now a **working real-infra path**:
   provisions nothing until you opt in (see `README.md` for the gate)
 - Adapt the resource blocks to your own environment before applying
 
-<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
-<small class="qr-caption">Scan to take these slides home</small>
-
 Thanks! Questions?
+
+---
+
+## Take it home
+
+<img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to these slides" />
+<small class="qr-caption">Slides, Terraform, and docs — all here</small>
+
+<aside class="notes">
+Leave this up during Q&A so people can grab the deck and the repo on their way out.
+Same URL as the follow-along QR at the start.
+</aside>
