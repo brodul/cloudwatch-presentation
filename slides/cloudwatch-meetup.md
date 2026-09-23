@@ -236,7 +236,7 @@ Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole`)
 - ✅ Metrics + dashboards, **automatic cross-region**
 - ❌ No logs, view-only alarms
 
-Simplest for "one dashboard, many accounts/regions, metrics only."
+Cross-region for free — but **confusing to set up**.
 
 <aside class="notes">
 Sub-features like automatic dashboards and the org account selector need extra setup —
@@ -367,8 +367,8 @@ account/region.
 | Need | Pick |
 |---|---|
 | Metrics + logs + traces | OAM |
-| Simplest cross-region metrics view | Console feature |
-| One store / 3rd-party tool | Metric Streams |
+| Cross-region view in the AWS Console | Console feature |
+| One store in a tool you already run | Metric Streams |
 
 They compose — mix and match.
 
@@ -437,8 +437,8 @@ purpose: cost scales with what you stream, not with how many accounts you aggreg
 ## Conclusion
 
 - **Start with OAM** — easy: 3 resources, free, metrics + logs + traces
-- **Add the console feature** once — for the cross-region view
-- **Stream out** only when you need one store or an outside tool — filtered
+- **Console feature** — cross-region, but confusing and hard to set up
+- **Stream out** if you already run the infra for it (Grafana, Datadog, …)
 - **Region** is the real boundary, not the account
 
 <aside class="notes">
@@ -452,6 +452,17 @@ Where it stops being easy: it multiplies. One sink per region, one link per sour
 account per region — fine for 3 accounts, needs StackSets or Terraform for_each at 50.
 And third-party tools need more than CloudWatchReadOnlyAccess: Grafana silently showed
 nothing from the linked account until its role got oam:ListSinks / oam:ListAttachedLinks.
+
+The console feature is the opposite: little code, but confusing. Two "monitoring
+account" settings screens that look almost identical (OAM vs this), three separate
+opt-ins (account selector, org account list, automatic dashboards), a CloudFormation-only
+role in the management account for the org selector, and failures that show up as empty
+graphs or "Cross account unavailable" rather than errors. Every one of the four Approach 2
+gotchas looked like a broken demo.
+
+Streaming out makes sense when you already run the destination — a Grafana, Datadog or
+data-lake stack you operate anyway. Standing up Firehose + a sink just for this is a lot
+of moving parts and the only option that costs money.
 
 Other takeaways:
 - They compose: AWS's own Database Insights uses OAM per region + the console feature
