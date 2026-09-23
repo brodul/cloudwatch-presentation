@@ -309,13 +309,11 @@ Metric Streams → Kinesis Firehose → S3 or a third-party sink
 - One stream per account/region, shared destination
 
 <aside class="notes">
-AWS also has a newer built-in option (metrics: June 2026), cross-account cross-Region
-centralization: rules in the Organization copy logs and metrics into one destination
-account/region. Requires AWS Organizations, and source selection is all-or-nothing ("*").
-It copies custom/OTel metrics (PutMetricData, EMF, OTLP); classic AWS service metrics like
-AWS/EC2 CPUUtilization are only included if Vended Metric Enrichment is on, and then
-arrive as OTel metrics. For the classic metrics as-is, and for sending anywhere outside
-CloudWatch, Metric Streams is still the way.
+AWS also has a newer built-in option, cross-account cross-Region centralization: rules
+in the Organization copy logs and metrics into one destination account/region. But its
+metrics support is custom metrics only (PutMetricData, EMF, OTLP), and it requires AWS
+Organizations. For AWS service metrics like EC2 CPUUtilization, and for sending
+anywhere outside CloudWatch, Metric Streams is still the way.
 </aside>
 
 ---
