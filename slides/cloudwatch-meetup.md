@@ -195,6 +195,8 @@ point.
 
 ## Approach 1: OAM, diagrammed
 
+<!-- .slide: class="tight" -->
+
 ```mermaid
 flowchart LR
     subgraph rA["Region: us-east-1"]
@@ -410,79 +412,73 @@ feeding Grafana externally.
 
 ---
 
-## What actually broke
+## What costs nothing
 
-<!-- .slide: class="tight" -->
-
-The concepts are clean; the implementation had sharp edges:
-
-- Grafana's CloudWatch auth needs an exact `authType`
-- OAM discovery needs IAM perms beyond `CloudWatchReadOnlyAccess`
-- OTLP→Prometheus metric names aren't a mechanical transform
-- Hand-built dashboard JSON can be backend-valid but **frontend-inert**
-
-Full list: `docs/gotchas.md`
-
-<aside class="notes">
-Auth: needs the exact `authType = "grafana_assume_role"` — not `"default"` +
-assumeRoleArn, not `"arn"`. OAM: needs `oam:ListSinks`/`oam:ListAttachedLinks` on top of
-CloudWatchReadOnlyAccess, or the link is invisible to Grafana. OTLP naming: e.g.
-`network_in`, not `networkin`. Frontend-inert: the CloudWatch query editor silently
-refuses to fire queries missing 4 fields (accountId, metricEditorMode, metricQueryType,
-queryMode), with no error anywhere. This one cost the most time — healthy datasource,
-correct data returned by the exact same query called directly via the API, yet the live
-dashboard panel showed "No data" with zero errors in the console or network tab. Worth
-calling out as the "if you build dashboards by hand, watch for this" takeaway.
-</aside>
-
----
-
-## What does this cost?
-
-<!-- .slide: class="tight" -->
-
-Real Cost Explorer numbers, yesterday, all 3 accounts combined — **by approach**:
+OAM and the console feature are **query-time** — they read metrics that
+already exist in CloudWatch's own storage. No re-emission, no metering.
 
 | Approach | Cost | Why |
 |---|---|---|
 | 1: OAM | **$0** | metadata-only reads, no metering |
 | 2: Console feature | **$0** | assumed-role reads, no metering |
-| 3: Metric Streams | **$0.38 CW + $0.02 Firehose/S3** | billed per metric update |
-| EC2 (all 3) | **$0.016** | t3.micro, mostly free tier |
-
-**≈ $0.41/day → ~$12/month**, and it's ~95% one approach.
 
 <aside class="notes">
-Broke this down via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
-— the only two CloudWatch usage-type line items yesterday were USE1-CW:MetricStreamUsage
-($0.26) and USW2-CW:MetricStreamUsage ($0.12), ~86k + ~41k "Metric Update"s respectively.
-That's Approach 3 exclusively — OAM sinks/links and the console cross-account IAM roles
-generate zero metered usage, they're just read paths through existing metric storage.
+Confirmed via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
+— no line items at all attributable to OAM sinks/links or the console cross-account IAM
+roles. They're just read paths through existing metric storage, so turning them on is
+free regardless of how many accounts/regions you aggregate for viewing.
 </aside>
 
 ---
 
-## Cost scales with what you stream
+## Metric Streams — status
 
-You can filter what a Metric Stream sends: `include_filter` / `exclude_filter`
-scope by namespace (and optionally metric name).
+<!-- .slide: class="tight" -->
 
-This demo's `aws_cloudwatch_metric_stream` has neither, so it streams
-**every metric, every namespace**, in each account.
+Approach 3 is **write-time**: it re-emits every metric update to Firehose —
+that's the billed unit. No `include_filter` set, so it streams
+**every namespace**, not just EC2.
+
+| Account | Region | Metrics streamed |
+|---|---|---|
+| `account_a` | us-east-1 | 221 |
+| `account_b` | us-east-1 | 194 |
+| `account_c` | us-west-2 | 167 |
 
 <aside class="notes">
-Filtering note: terraform/modules/metric-stream/main.tf's aws_cloudwatch_metric_stream
-resource has no include_filter/exclude_filter, so every namespace (EC2, Lambda, RDS, S3,
-whatever else exists in the account) streams out continuously, even though the dashboards
-only ever query AWS/EC2 CPUUtilization. Scoping it down to
-`include_filter { namespace = "AWS/EC2" }` — or even to specific metric_names — would cut
-the ~127k daily metric updates to a small fraction of that, with a proportional cost drop.
-Left unfiltered here deliberately, to make the "cost scales with what you stream, not with
-how many accounts you aggregate" point concretely measurable rather than theoretical.
-Firehose/S3 costs are the same story: that's the export pipeline underneath Metric Streams.
-The takeaway for anyone budgeting this: OAM and the console feature are effectively free to
-turn on: cost scales with what you *stream out*, not with how many accounts/regions you
-aggregate for viewing.
+221 + 194 + 167 = 582 distinct metrics being streamed, none of which are filtered down to
+just AWS/EC2 — so EBS, the Firehose pipeline's own metrics, EC2 status checks, etc. are all
+streaming continuously even though the dashboards only ever query AWS/EC2 CPUUtilization.
+</aside>
+
+---
+
+## Metric Streams — cost
+
+<!-- .slide: class="tight" -->
+
+Metric updates (billed unit — one "update" per metric per datapoint), last 24h:
+
+| Account | Updates / 24h |
+|---|---|
+| `account_a` | 80,842 |
+| `account_b` | 78,594 |
+| `account_c` | 76,180 |
+| **Total** | **235,616** |
+
+At AWS's published rate of $0.003 / 1,000 updates: **~$0.71/day, ~$21/month**
+
+No `IncludeFilters` set on any stream — scoping each to `AWS/EC2` would cut
+this **5-10x** with zero impact on what the dashboards show.
+
+<aside class="notes">
+At AWS's published rate of $0.003 per 1,000 metric updates that's ~$0.71/day, ~$21/month if
+left running continuously — higher than the earlier $0.38/day estimate because usage keeps
+growing as long as the streams run unfiltered. Scoping each stream's
+`aws_cloudwatch_metric_stream` with `include_filter { namespace = "AWS/EC2" }` would cut
+this roughly 5-10x with zero impact on what the dashboards show — left unfiltered
+deliberately, to make "cost scales with what you stream, not with how many accounts you
+aggregate" a concrete, measurable number instead of a theoretical one.
 </aside>
 
 ---
