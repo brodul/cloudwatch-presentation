@@ -304,9 +304,17 @@ CloudWatch automatic dashboards" checkbox was ticked. Full detail in docs/gotcha
 
 Metric Streams → Kinesis Firehose → S3 or a third-party sink
 
-- The only approach with **true consolidation** into one store
+- **True consolidation** of AWS service metrics (`AWS/EC2`, …) into one store
 - Long retention, external tools (Grafana, Datadog, …)
 - One stream per account/region, shared destination
+
+<aside class="notes">
+AWS also has a newer built-in option, cross-account cross-Region centralization: rules
+in the Organization copy logs and metrics into one destination account/region. But its
+metrics support is custom metrics only (PutMetricData, EMF, OTLP), and it requires AWS
+Organizations. For AWS service metrics like EC2 CPUUtilization, and for sending
+anywhere outside CloudWatch, Metric Streams is still the way.
+</aside>
 
 ---
 
