@@ -66,7 +66,9 @@
 # Combining CloudWatch
 ## Across Accounts and Regions
 
-<small>An AWS meetup talk</small>
+<small>Andraž Brodnik — brodul</small>
+
+<small>2026-09-24</small>
 
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
@@ -98,12 +100,19 @@ CloudWatch isn't one thing — it's a family of sub-services:
 - **Dashboards** — visualization
 - **Events / EventBridge**, **Synthetics**, **RUM**, **Contributor Insights** — and more
 
+**This talk focuses on Metrics.** We'll also skip the `GetMetricData` endpoint.
+
 <aside class="notes">
 Point being: "CloudWatch" as a word covers a lot of ground, and cross-account/cross-region
 support differs *per sub-service*, which is exactly why there are multiple approaches
 instead of one. Events/EventBridge react to state changes, Synthetics runs scripted
 canaries, RUM is real user monitoring for web apps, Contributor Insights does top-N
 analysis over logs.
+
+Scope note: everything that follows is about Metrics specifically — the other sub-services
+are out of scope today. Also skipping the `GetMetricData` API endpoint: it's the direct
+pull-based way to read metric values, but the cross-account/cross-region story here is about
+OAM, the console feature, and Metric Streams, not hand-rolling GetMetricData calls.
 </aside>
 
 ---
@@ -217,6 +226,7 @@ catch made visual.
 ## Approach 1, live
 
 Dashboard: **"1: OAM Cross-Account View"**
+[open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/a2f03ab4a1c1487e95903fb0fa7c9a23)
 
 - `account_a` (us-east-1) is the OAM monitoring account
 - `account_b` (us-east-1) links into it — zero direct connection, yet its
@@ -362,6 +372,7 @@ the "many accounts" problem actually disappears at the data layer, not just the 
 ## Approach 3, live
 
 Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
+[open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/de83085e81794d9e81cc16a334236671)
 
 - All 3 accounts stream metrics independently into the same Grafana Cloud
   Prometheus (Mimir) instance
