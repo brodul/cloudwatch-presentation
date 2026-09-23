@@ -66,7 +66,7 @@
 # Combining CloudWatch
 ## Across Accounts and Regions
 
-<small>An AWS meetup talk</small>
+<small>Andraž Brodnik — brodul</small>
 
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
