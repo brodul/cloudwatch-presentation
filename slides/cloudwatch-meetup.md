@@ -71,7 +71,7 @@
 <small>2026-09-24</small>
 
 <aside class="notes">
-Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
+Intro yourself, set expectations: 15 minutes, 4 approaches (3 demoed live), a reference repo people can
 take home. This *is* a live demo — 3 real AWS accounts, real EC2 instances, real
 Grafana dashboards, all wired up and working end to end.
 </aside>
@@ -362,13 +362,51 @@ account/region.
 
 ---
 
+## Approach 4: Centralization
+
+<!-- .slide: class="tight" -->
+
+Newest built-in option (June 2026) — **copies** metrics into one account + region
+
+- ✅ Custom metrics: `PutMetricData`, EMF, OTLP
+- ❌ AWS service metrics (`AWS/EC2`, RDS, …) — not supported
+- ✅ Cross-account **and** cross-region; alarms, PromQL, dashboards on the copy
+- ⚠️ Needs AWS Organizations · all metrics or nothing · no history
+
+First copy free.
+
+<aside class="notes">
+AWS's own "Monitor across accounts and Regions" page lists this as the third built-in
+option next to OAM and the console feature. You create a centralization rule in the
+management (or delegated admin) account: source accounts / OUs / whole org, source
+regions, one destination region, optional paid backup region. New metrics are copied
+and tagged with @aws.account and @aws.region so you still know where they came from.
+
+Supported types, per the docs: custom metrics (PutMetricData), Embedded Metric Format,
+and OpenTelemetry (OTLP) — nothing else. So our demo's EC2 CPUUtilization would NOT
+show up; that's why Metric Streams is still in this talk.
+
+On the copy you get GetMetricData, Metrics Insights, PromQL, metric math, anomaly
+detection, alarms (incl. composite and PromQL alarms), dashboards — and Metric Streams,
+so for custom metrics you could stream once from the destination instead of once per
+account and region. Automatic EC2/S3 dashboards only partly work (resource metadata isn't
+copied). Limits: trusted access must be enabled for CloudWatch, no selective filtering
+yet, only data after the rule is created, and the destination's metric quotas apply.
+Not deployed in this demo.
+</aside>
+
+---
+
 ## Which one, when?
+
+<!-- .slide: class="tight" -->
 
 | Need | Pick |
 |---|---|
 | Metrics + logs + traces | OAM |
 | Cross-region view in the AWS Console | Console feature |
 | One store in a tool you already run | Metric Streams |
+| Custom metrics in one account, org-wide | Centralization |
 
 They compose — mix and match.
 
