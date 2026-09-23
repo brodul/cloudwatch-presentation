@@ -477,6 +477,7 @@ purpose: cost scales with what you stream, not with how many accounts you aggreg
 - **Start with OAM** — easy: 3 resources, free, metrics + logs + traces
 - **Console feature** — cross-region, but confusing and hard to set up
 - **Stream out** if you already run the infra for it (Grafana, Datadog, …)
+- **Centralization** for custom metrics, org-wide — not AWS service metrics
 - **Region** is the real boundary, not the account
 
 <aside class="notes">
@@ -509,8 +510,6 @@ Other takeaways:
   you aggregate — set an include_filter.
 - The console feature has no API: great for people in the AWS Console, useless for
   Grafana.
-- Logs and custom metrics can now also be copied across accounts and regions with
-  CloudWatch centralization (requires Organizations).
 - Put an explicit provider on every Terraform resource — one without it silently landed
   in the management account here.
 </aside>
