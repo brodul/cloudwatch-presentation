@@ -102,9 +102,12 @@ AWS now also offers a built-in copy-based option, **cross-account cross-Region
 centralization**: rules defined in the AWS Organizations management (or delegated
 administrator) account copy logs and metrics from chosen accounts/OUs/regions into one
 destination account and region, tagged with source account and region. The first copy
-is free. Its metrics support covers custom metrics only (`PutMetricData`, Embedded
-Metric Format, OTLP), so AWS service metrics such as `AWS/EC2` `CPUUtilization` still
-need Metric Streams — as does any destination outside CloudWatch.
+is free. Metrics centralization (June 2026) copies custom and OpenTelemetry metrics
+(`PutMetricData`, Embedded Metric Format, OTLP), and source selection is currently
+all-or-nothing (`*`). Classic AWS service metrics such as `AWS/EC2` `CPUUtilization` are
+only included when **Vended Metric Enrichment** is enabled, in which case they're
+published — and centralized — as OTel metrics. To export the classic metrics as-is, or
+to reach any destination outside CloudWatch, you still need Metric Streams.
 
 ## Comparison
 
