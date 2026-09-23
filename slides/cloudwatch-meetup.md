@@ -246,17 +246,13 @@ say so explicitly.
 
 <!-- .slide: class="tight" -->
 
-Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole` /
-`ServiceRoleForCloudWatchCrossAccountV2`)
+Older IAM-role mechanism (`…CrossAccountSharingRole` / `…CrossAccountV2`)
 
 - ✅ Metrics/dashboards, **automatic cross-region graphing**, no per-region setup
-- ❌ No logs
-- ❌ No cross-account/cross-region alarms — view only
-- ⚠️ A few sub-features (automatic dashboards, org-wide account selector) need
-  extra setup beyond the base IAM roles
+- ❌ No logs; no cross-account/cross-region alarms — view only
+- ⚠️ Some sub-features (auto dashboards, org account selector) need extra setup
 
-Simplest option if all you need is "one dashboard, many accounts and regions, metrics
-only."
+Simplest option for "one dashboard, many accounts/regions, metrics only."
 
 ---
 
