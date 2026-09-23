@@ -226,6 +226,7 @@ catch made visual.
 ## Approach 1, live
 
 Dashboard: **"1: OAM Cross-Account View"**
+[open in Grafana ↗](https://boldiguana716.grafana.net/d/oam-cross-account-view)
 
 - `account_a` (us-east-1) is the OAM monitoring account
 - `account_b` (us-east-1) links into it — zero direct connection, yet its
@@ -371,6 +372,7 @@ the "many accounts" problem actually disappears at the data layer, not just the 
 ## Approach 3, live
 
 Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
+[open in Grafana ↗](https://boldiguana716.grafana.net/d/metric-streams-otlp)
 
 - All 3 accounts stream metrics independently into the same Grafana Cloud
   Prometheus (Mimir) instance
