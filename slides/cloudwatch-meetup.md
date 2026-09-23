@@ -72,7 +72,7 @@
 
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
-take home. This *is* a live demo now — 3 real AWS accounts, real EC2 instances, real
+take home. This *is* a live demo — 3 real AWS accounts, real EC2 instances, real
 Grafana dashboards, all wired up and working end to end.
 </aside>
 
@@ -92,58 +92,43 @@ they can follow along in the source and the deck lives right there in slides/.
 
 ## What is CloudWatch?
 
-CloudWatch isn't one thing — it's a family of sub-services:
+A family of sub-services, not one thing:
 
-- **Metrics** — numeric time series (CPUUtilization, custom app metrics)
-- **Logs** + **Logs Insights** — log storage and querying
-- **Alarms** — thresholds/anomaly detection triggering actions
-- **Dashboards** — visualization
-- **Events / EventBridge**, **Synthetics**, **RUM**, **Contributor Insights** — and more
+- **Metrics**, **Logs**, **Alarms**, **Dashboards**
+- EventBridge, Synthetics, RUM, Contributor Insights, …
 
-**This talk focuses on Metrics.** We'll also skip the `GetMetricData` endpoint.
+Cross-account support differs **per sub-service**.
+
+**This talk: Metrics only** (and not `GetMetricData`).
 
 <aside class="notes">
-Point being: "CloudWatch" as a word covers a lot of ground, and cross-account/cross-region
-support differs *per sub-service*, which is exactly why there are multiple approaches
-instead of one. Events/EventBridge react to state changes, Synthetics runs scripted
-canaries, RUM is real user monitoring for web apps, Contributor Insights does top-N
-analysis over logs.
+"CloudWatch" as a word covers a lot of ground, and cross-account/cross-region support
+differs per sub-service — which is exactly why there are multiple approaches instead of
+one. Events/EventBridge react to state changes, Synthetics runs scripted canaries, RUM is
+real user monitoring, Contributor Insights does top-N analysis over logs.
 
-Scope note: everything that follows is about Metrics specifically — the other sub-services
-are out of scope today. Also skipping the `GetMetricData` API endpoint: it's the direct
-pull-based way to read metric values, but the cross-account/cross-region story here is about
-OAM, the console feature, and Metric Streams, not hand-rolling GetMetricData calls.
+Skipping the GetMetricData API: it's the direct pull-based way to read metric values, but
+the story here is OAM, the console feature, and Metric Streams, not hand-rolled API calls.
 </aside>
 
 ---
 
-## What is an AWS Account?
+## Two boundaries
 
-A billing, security, and blast-radius boundary.
+- **Account** — billing, security, blast radius. Invisible to others by default.
+- **Region** — physical isolation. CloudWatch is **regional**: a metric in
+  `us-east-1` doesn't exist in `eu-central-1`.
 
-- Separate IAM, separate limits, separate invoice
-- Resources in one account are invisible to another by default
-- Common pattern: many accounts, one per team/env/workload
+**N accounts × M regions = fragmented visibility**
 
----
+<aside class="notes">
+Accounts: separate IAM, separate limits, separate invoice; common pattern is many accounts,
+one per team/env/workload. Regions: nothing crosses a region boundary unless something
+explicitly moves it there.
 
-## What is an AWS Region?
-
-A physical isolation boundary — a cluster of data centers in one geography.
-
-- Most AWS services, including CloudWatch, are **regional**
-- A metric published in `us-east-1` doesn't exist in `eu-central-1`
-- Nothing crosses a region boundary unless something explicitly moves it there
-
----
-
-## The problem
-
-N accounts × M regions = fragmented visibility
-
-- Where do I look for this metric?
-- How many browser tabs / console logins does "checking on prod" require?
-- Alarms can't span what you can't see
+The problem: where do I look for this metric? How many browser tabs / console logins does
+"checking on prod" require? Alarms can't span what you can't see.
+</aside>
 
 ---
 
@@ -159,33 +144,30 @@ N accounts × M regions = fragmented visibility
 | `account_b` | us-east-1 | source, same region | `i-0d8eb892991961cac` |
 | `account_c` | us-west-2 | source, different region | `i-0471d5a973730b195` |
 
-`account_a` + `account_b` share a region on purpose (proves real cross-account
-linking); `account_c` sits elsewhere on purpose (proves the region boundary).
+`account_c` sits in another region **on purpose**.
 
 <aside class="notes">
 This is the fixture every "live" slide refers back to. Each account runs one small EC2
-instance publishing CPUUtilization — that's the metric all 3 approaches are shown pulling
-across the account/region boundary. account_c's separate region is the one that exposes
-OAM's "sinks/links can't cross regions" limitation later, and it's also the account left
-out of Approach 2's automatic cross-region graphing story if the console feature isn't
-configured for it too. Real account IDs deliberately not shown on screen.
+instance publishing CPUUtilization — the metric all 3 approaches pull across the
+account/region boundary. account_a + account_b share a region to prove real
+cross-account linking; account_c's separate region exposes OAM's "sinks/links can't
+cross regions" limitation later. Real account IDs deliberately not shown on screen.
 </aside>
 
 ---
 
 ## Approach 1: OAM
 
-**Observability Access Manager** — AWS's current recommended default
+**Observability Access Manager** — AWS's recommended default
 
-- **Sink** (monitoring account, one per region)
-- **Sink policy** (who's allowed to link — scope to an Organization)
-- **Link** (each source account, one per region, per telemetry type)
-
-Covers metrics, logs, traces, X-Ray — the richest picture.
+- **Sink** — monitoring account, one per region
+- **Link** — each source account, one per region
+- Metrics, logs, traces — the richest picture
 
 **Catch**: sinks/links can't cross regions.
 
 <aside class="notes">
+There's also a sink policy — who's allowed to link, typically scoped to an Organization.
 N regions = N sinks + N×(source accounts) links. Reference terraform/oam.tf in the repo.
 Mention aws-samples' OAM Terraform example repo for anyone who wants a deeper starting
 point.
@@ -227,34 +209,39 @@ catch made visual.
 
 ## Approach 1, live
 
-Dashboard: **"1: OAM Cross-Account View"**
+Dashboard **"1: OAM Cross-Account View"**
 [open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/a2f03ab4a1c1487e95903fb0fa7c9a23)
 
-- `account_a` (us-east-1) is the OAM monitoring account
-- `account_b` (us-east-1) links into it — zero direct connection, yet its
-  CPUUtilization shows up on account_a's dashboard
-- `account_c` (us-west-2) is **deliberately not visible** — different region
+- `account_b` shows up on `account_a`'s dashboard via the link
+- `account_c` is **missing** — different region
 
 <aside class="notes">
 Point at the two series on the graph and say which account each instance ID belongs to.
 account_c has no link, no sink in its region — that gap on screen is the "sinks/links
 can't cross regions" catch, live. The empty region-3 panel is the punchline, not a bug —
 say so explicitly.
+
+How Grafana gets in: its CloudWatch data source uses the Assume Role method — Grafana's
+AWS account assumes an IAM role in account_a via STS + an externalId, so no long-lived
+AWS keys ever leave the account. Pointing it at the OAM monitoring account means one role
+covers every linked source account. One data source per region is recommended.
 </aside>
 
 ---
 
 ## Approach 2: Cross-account, cross-Region console
 
-<!-- .slide: class="tight" -->
+Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole`)
 
-Older IAM-role mechanism (`…CrossAccountSharingRole` / `…CrossAccountV2`)
+- ✅ Metrics + dashboards, **automatic cross-region**
+- ❌ No logs, view-only alarms
 
-- ✅ Metrics/dashboards, **automatic cross-region graphing**, no per-region setup
-- ❌ No logs; no cross-account/cross-region alarms — view only
-- ⚠️ Some sub-features (auto dashboards, org account selector) need extra setup
+Simplest for "one dashboard, many accounts/regions, metrics only."
 
-Simplest option for "one dashboard, many accounts/regions, metrics only."
+<aside class="notes">
+Sub-features like automatic dashboards and the org account selector need extra setup —
+see the live slide notes. No per-region setup, unlike OAM.
+</aside>
 
 ---
 
@@ -288,55 +275,38 @@ here versus OAM. But the merged result only exists inside this console UI.
 
 ## Approach 2, live — or rather, not
 
-<!-- .slide: class="tight" -->
+No Grafana dashboard **on purpose**:
 
-Dashboard: **"2: Cross-Account Console (not representable in Grafana)"**
-
-This is the one approach with **no metrics panel** — on purpose.
-
-- The IAM roles (`terraform/cross-account-console.tf`) share into `account_b`
-  and `account_c`
-- The merged view only ever renders **inside the AWS Console itself**
-- No API surface for it — nothing a third-party tool can call
-- All 3 accounts confirmed live in the console: `account_a`, `account_b`
-  (us-east-1), and `account_c` (us-west-2) — cross-region graphing, for real
+- The merged view only renders **inside the AWS Console**
+- No API for it — nothing a third-party tool can call
+- In the console: all 3 accounts, both regions ✅
 
 <aside class="notes">
-The console view lives at CloudWatch → Settings → "Cross-account cross-region" (not the
-similarly-named OAM "Monitoring account" page — the two are easy to conflate since both
-use "monitoring account" terminology and have similar-looking settings screens; verified
-by diffing the actual IAM policy JSON shown on each against the corresponding Terraform
-resource). Grafana's CloudWatch data source always queries via its own assumed role, so
-there's no API surface for "the monitoring-account merged view" it could hit. Good moment
-to flip to the actual AWS Console and show the real feature, since Grafana can't. This is
-an honest limitation, not a gap in the demo.
+Flip to the actual AWS Console here. The view lives at CloudWatch → Settings →
+"Cross-account cross-region" (not the similarly-named OAM "Monitoring account" page — the
+two are easy to conflate). IAM roles are in terraform/cross-account-console.tf, sharing
+into account_b and account_c. Grafana's CloudWatch data source always queries via its own
+assumed role, so there's no API surface for the merged view. Honest limitation, not a gap
+in the demo.
 
-Real gotchas hit wiring this up live, worth mentioning if there's time: (1) the sharing
-role resource originally had no explicit provider, so it silently deployed to the org's
-management account instead of account_b/account_c — the console only showed account_a's
-own region until that was fixed. (2) an org-wide SCP restricting requests to specific
-regions threw an explicit-deny on cloudwatch:ListDashboards while the console's region
-selector was set to a region outside that allow-list — switching back to us-east-1
-resolved it. (3) the "AWS Organization account selector" option needs a separate,
-CFN-only role in the management account; switched to "Custom account selector" instead
-(manually list account IDs) and it worked immediately, no extra role needed. (4) the
-CloudWatch automatic-dashboards view (the built-in EC2 fleet dashboard) showed "Cross
-account unavailable" and "No data" even with everything else working — that view needs
-its own explicit "Include CloudWatch automatic dashboards" sharing checkbox, separate
-from the base CloudWatchReadOnlyAccess grant; plain Metrics → All metrics browsing for
-the same underlying CPUUtilization data worked the whole time. All four are "the demo
-looked broken but the approach wasn't" moments — full detail in docs/gotchas.md.
+Gotchas hit wiring this up, if there's time: (1) the sharing role had no explicit
+provider, so it silently deployed to the management account. (2) an org-wide SCP region
+restriction threw an explicit-deny on cloudwatch:ListDashboards when the console was set
+to a non-allowed region. (3) the "AWS Organization account selector" needs a separate
+CFN-only role in the management account — "Custom account selector" worked immediately.
+(4) automatic dashboards showed "Cross account unavailable" until the separate "Include
+CloudWatch automatic dashboards" checkbox was ticked. Full detail in docs/gotchas.md.
 </aside>
 
 ---
 
 ## Approach 3: Export / stream it out
 
-CloudWatch Metric Streams → Kinesis Firehose → S3 or a third-party sink
+Metric Streams → Kinesis Firehose → S3 or a third-party sink
 
-- The only approach that gives **true consolidation** into one store
-- Needed for long retention or feeding external tools (Grafana, Datadog, ...)
-- Each region needs its own stream; can share one destination
+- The only approach with **true consolidation** into one store
+- Long retention, external tools (Grafana, Datadog, …)
+- One stream per account/region, shared destination
 
 ---
 
@@ -369,29 +339,18 @@ the "many accounts" problem actually disappears at the data layer, not just the 
 
 ## Approach 3, live
 
-Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
+Dashboard **"3: Metric Streams (OTLP)"**
 [open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/de83085e81794d9e81cc16a334236671)
 
-- All 3 accounts stream metrics independently into the same Grafana Cloud
-  Prometheus (Mimir) instance
-- Queried with plain PromQL (`aws_ec2_cpuutilization_average`) — this
-  dashboard has no CloudWatch data source at all
-- One graph, 3 accounts, 2 regions, no per-account/region query fan-out
+- All 3 accounts, both regions, **one PromQL query**
+- No CloudWatch data source at all
 
 <aside class="notes">
-This is what "true consolidation" actually looks like, not just "a nicer view" — one
-query hits every account at once instead of fanning out per account/region.
+All 3 accounts stream into the same Grafana Cloud Prometheus (Mimir) instance, queried
+with plain PromQL (aws_ec2_cpuutilization_average). This is what "true consolidation"
+looks like — one query hits every account at once instead of fanning out per
+account/region.
 </aside>
-
----
-
-## Sending it to Grafana Cloud
-
-- Grafana's CloudWatch data source uses the **Assume Role** method
-- Grafana's AWS account assumes an IAM role you create, via STS + an `externalId`
-- **No long-lived AWS keys** ever leave your account
-- One data source per region recommended — or point at your OAM monitoring account's
-  aggregated view to need only one role
 
 ---
 
@@ -399,11 +358,11 @@ query hits every account at once instead of fanning out per account/region.
 
 | Need | Pick |
 |---|---|
-| Full telemetry (metrics+logs+traces) | OAM |
-| Simplest cross-region metrics dashboard | Console feature |
-| True consolidation / 3rd-party sink | Export / Metric Streams |
+| Metrics + logs + traces | OAM |
+| Simplest cross-region metrics view | Console feature |
+| One store / 3rd-party tool | Metric Streams |
 
-They compose — mix and match per-region or per-tool.
+They compose — mix and match.
 
 <aside class="notes">
 E.g. OAM per-region + the console feature on top, or OAM internally + Metric Streams
@@ -414,121 +373,60 @@ feeding Grafana externally.
 
 ## They compose — AWS does it too
 
-<!-- .slide: class="tight" -->
+**Database Insights** (RDS / Aurora) cross-account, cross-region needs **both**:
 
-**CloudWatch Database Insights** (RDS / Aurora fleet monitoring), cross-account
-cross-region, needs **Approach 1 _and_ Approach 2** in place first:
-
-- **OAM** monitoring account sharing at least: Logs, Metrics, Traces,
-  Application Signals (Services, SLOs)
-- **Console feature** sharing role with: *Include CloudWatch automatic dashboards*
-  \+ *Include read-only access for Database Insights*
-- Repeat **per region** you want covered
-
-OAM supplies the telemetry, the console role supplies the cross-region reach.
+- **OAM** — for the telemetry
+- **Console feature** — for the cross-region reach
+- …set up in **every region**
 
 <aside class="notes">
-Launched Nov 2025. Good closer for "they compose": AWS's own newer feature doesn't pick
-one mechanism, it stacks both — OAM for the linked telemetry (it's region-scoped, per
-the account_c gap earlier), and the older CloudWatch-CrossAccountSharingRole for the
-cross-region part. Note the "automatic dashboards" checkbox is the same one that bit us
-in the Approach 2 live demo (see docs/gotchas.md). Not deployed in this demo — no RDS
-databases in the demo accounts. Source: docs.aws.amazon.com/AmazonCloudWatch/latest/
-monitoring/Database-Insights-Cross-Account-Cross-Region.html
+Launched Nov 2025. AWS's own newer feature doesn't pick one mechanism, it stacks both.
+OAM monitoring account must share at least Logs, Metrics, Traces, and Application Signals
+(Services, SLOs). The console sharing role needs "Include CloudWatch automatic dashboards"
++ "Include read-only access for Database Insights" — the automatic-dashboards checkbox is
+the same one that bit us in the Approach 2 demo. Not deployed here — no RDS databases in
+the demo accounts. Source: docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/
+Database-Insights-Cross-Account-Cross-Region.html
 </aside>
 
 ---
 
-## What costs nothing
+## What it costs
 
-OAM and the console feature are **query-time** — they read metrics that
-already exist in CloudWatch's own storage. No re-emission, no metering.
+<!-- .slide: class="tight" -->
 
 | Approach | Cost | Why |
 |---|---|---|
-| 1: OAM | **$0** | metadata-only reads, no metering |
-| 2: Console feature | **$0** | assumed-role reads, no metering |
+| 1: OAM | **$0** | query-time read |
+| 2: Console | **$0** | query-time read |
+| 3: Metric Streams | **~$21/month** | write-time: every update re-emitted |
+
+Demo: 582 metrics, 235,616 updates/day at $0.003 / 1,000.
+Filtering to `AWS/EC2` would cut it **5-10x**.
 
 <aside class="notes">
-Confirmed via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter SERVICE=AmazonCloudWatch`
-— no line items at all attributable to OAM sinks/links or the console cross-account IAM
-roles. They're just read paths through existing metric storage, so turning them on is
-free regardless of how many accounts/regions you aggregate for viewing.
+OAM and the console feature read metrics that already exist in CloudWatch's storage —
+confirmed via `aws ce get-cost-and-usage --group-by USAGE_TYPE --filter
+SERVICE=AmazonCloudWatch`: no line items attributable to OAM sinks/links or the console
+IAM roles. Free regardless of how many accounts/regions you aggregate.
+
+Metric Streams bill per metric update. Last 24h: account_a 80,842, account_b 78,594,
+account_c 76,180 updates (221 / 194 / 167 metrics streamed). ~$0.71/day. No
+include_filter set, so every namespace streams — EBS, Firehose's own metrics, status
+checks — even though dashboards only use AWS/EC2 CPUUtilization. Left unfiltered on
+purpose: cost scales with what you stream, not with how many accounts you aggregate.
 </aside>
-
----
-
-## Metric Streams — status
-
-<!-- .slide: class="tight" -->
-
-Approach 3 is **write-time**: it re-emits every metric update to Firehose —
-that's the billed unit. No `include_filter` set, so it streams
-**every namespace**, not just EC2.
-
-| Account | Region | Metrics streamed |
-|---|---|---|
-| `account_a` | us-east-1 | 221 |
-| `account_b` | us-east-1 | 194 |
-| `account_c` | us-west-2 | 167 |
-
-<aside class="notes">
-221 + 194 + 167 = 582 distinct metrics being streamed, none of which are filtered down to
-just AWS/EC2 — so EBS, the Firehose pipeline's own metrics, EC2 status checks, etc. are all
-streaming continuously even though the dashboards only ever query AWS/EC2 CPUUtilization.
-</aside>
-
----
-
-## Metric Streams — cost
-
-<!-- .slide: class="tight" -->
-
-Metric updates (billed unit — one "update" per metric per datapoint), last 24h:
-
-| Account | Updates / 24h |
-|---|---|
-| `account_a` | 80,842 |
-| `account_b` | 78,594 |
-| `account_c` | 76,180 |
-| **Total** | **235,616** |
-
-At AWS's published rate of $0.003 / 1,000 updates: **~$0.71/day, ~$21/month**
-
-No `IncludeFilters` set on any stream — scoping each to `AWS/EC2` would cut
-this **5-10x** with zero impact on what the dashboards show.
-
-<aside class="notes">
-At AWS's published rate of $0.003 per 1,000 metric updates that's ~$0.71/day, ~$21/month if
-left running continuously — higher than the earlier $0.38/day estimate because usage keeps
-growing as long as the streams run unfiltered. Scoping each stream's
-`aws_cloudwatch_metric_stream` with `include_filter { namespace = "AWS/EC2" }` would cut
-this roughly 5-10x with zero impact on what the dashboards show — left unfiltered
-deliberately, to make "cost scales with what you stream, not with how many accounts you
-aggregate" a concrete, measurable number instead of a theoretical one.
-</aside>
-
----
-
-## Reference repo
-
-Terraform, docs, this deck, and now a **working real-infra path**:
-
-- 3 real AWS accounts, 3 EC2 instances, all 3 approaches demoed live in Grafana
-- Illustrative path still available — reads org context via `data` sources,
-  provisions nothing until you opt in (see `README.md` for the gate)
-- Adapt the resource blocks to your own environment before applying
-
-Thanks! Questions?
 
 ---
 
 ## Take it home
 
 <img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to the reference repo" />
-<small class="qr-caption">The whole repo — slides, Terraform, and docs</small>
+<small class="qr-caption">Terraform for all 3 approaches, docs, and this deck. Questions?</small>
 
 <aside class="notes">
-Leave this up during Q&A so people can grab the repo on their way out.
-Same URL as the follow-along QR at the start.
+Leave this up during Q&A so people can grab the repo on their way out. Same URL as the
+follow-along QR at the start. The repo provisions nothing by default — real infra is
+gated behind opt-in variables (see README.md). Adapt the resource blocks to your own
+environment before applying.
 </aside>

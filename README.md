@@ -104,7 +104,7 @@ that lifecycle block removed first or handling manually via the Organizations co
 
 ## Contents
 
-- [`slides/cloudwatch-meetup.md`](slides/cloudwatch-meetup.md) — 10-slide reveal.js deck.
+- [`slides/cloudwatch-meetup.md`](slides/cloudwatch-meetup.md) — 18-slide reveal.js deck.
 - [`docs/approaches.md`](docs/approaches.md) — the three approaches compared in depth;
   source material for the blog post.
 - [`terraform/`](terraform/):
