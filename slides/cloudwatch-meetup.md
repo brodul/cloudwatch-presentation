@@ -226,7 +226,7 @@ catch made visual.
 ## Approach 1, live
 
 Dashboard: **"1: OAM Cross-Account View"**
-[open in Grafana ↗](https://boldiguana716.grafana.net/d/oam-cross-account-view)
+[open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/a2f03ab4a1c1487e95903fb0fa7c9a23)
 
 - `account_a` (us-east-1) is the OAM monitoring account
 - `account_b` (us-east-1) links into it — zero direct connection, yet its
