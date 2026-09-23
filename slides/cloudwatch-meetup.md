@@ -68,6 +68,8 @@
 
 <small>Andraž Brodnik — brodul</small>
 
+<small>2026-09-24</small>
+
 <aside class="notes">
 Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
 take home. This *is* a live demo now — 3 real AWS accounts, real EC2 instances, real
