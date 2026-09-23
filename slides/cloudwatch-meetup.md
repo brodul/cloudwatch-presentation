@@ -372,7 +372,7 @@ the "many accounts" problem actually disappears at the data layer, not just the 
 ## Approach 3, live
 
 Dashboard: **"3: Metric Streams (OTLP) via Grafana Prometheus"**
-[open in Grafana ↗](https://boldiguana716.grafana.net/d/metric-streams-otlp)
+[open in Grafana ↗](https://boldiguana716.grafana.net/public-dashboards/de83085e81794d9e81cc16a334236671)
 
 - All 3 accounts stream metrics independently into the same Grafana Cloud
   Prometheus (Mimir) instance
