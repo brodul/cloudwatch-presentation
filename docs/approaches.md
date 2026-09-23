@@ -138,3 +138,27 @@ These aren't mutually exclusive — a common combination is OAM within each regi
 telemetry, plus the older console feature layered on top purely for one multi-region
 metrics view, or OAM for internal AWS-console use plus Metric Streams feeding an external
 Grafana Cloud stack for the "single pane of glass" that spans everything.
+
+### A real example of composing them: Database Insights
+
+AWS's own [CloudWatch Database Insights cross-account cross-region
+monitoring](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Database-Insights-Cross-Account-Cross-Region.html)
+(launched November 2025, for RDS and Aurora fleets) doesn't choose between Approach 1
+and Approach 2. It **requires both** to be set up first:
+
+1. **CloudWatch cross-account observability (OAM)**: when you set up the monitoring
+   account, share at least **Logs**, **Metrics**, **Traces**, and **Application
+   Signals: Services, Service Level Objectives (SLOs)**.
+2. **Cross-account cross-Region CloudWatch console**: on the sharing role's
+   permissions step, select at least **Include CloudWatch automatic dashboards** and
+   **Include read-only access for Database Insights**.
+
+Do both in **every region** you want Database Insights to cover. OAM links are
+region-scoped (see Approach 1), so that step can't be skipped.
+
+This is the same split the comparison table above shows: OAM brings the telemetry
+itself, and the older console mechanism brings the cross-region view. The "automatic
+dashboards" checkbox is also the separate opt-in described in
+[`gotchas.md`](gotchas.md). This repo's demo doesn't deploy it because the demo
+accounts have no RDS/Aurora databases.
+
