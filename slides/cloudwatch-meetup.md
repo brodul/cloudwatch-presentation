@@ -98,12 +98,19 @@ CloudWatch isn't one thing — it's a family of sub-services:
 - **Dashboards** — visualization
 - **Events / EventBridge**, **Synthetics**, **RUM**, **Contributor Insights** — and more
 
+**This talk focuses on Metrics.** We'll also skip the `GetMetricData` endpoint.
+
 <aside class="notes">
 Point being: "CloudWatch" as a word covers a lot of ground, and cross-account/cross-region
 support differs *per sub-service*, which is exactly why there are multiple approaches
 instead of one. Events/EventBridge react to state changes, Synthetics runs scripted
 canaries, RUM is real user monitoring for web apps, Contributor Insights does top-N
 analysis over logs.
+
+Scope note: everything that follows is about Metrics specifically — the other sub-services
+are out of scope today. Also skipping the `GetMetricData` API endpoint: it's the direct
+pull-based way to read metric values, but the cross-account/cross-region story here is about
+OAM, the console feature, and Metric Streams, not hand-rolling GetMetricData calls.
 </aside>
 
 ---
