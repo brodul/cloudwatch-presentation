@@ -434,6 +434,40 @@ purpose: cost scales with what you stream, not with how many accounts you aggreg
 
 ---
 
+## Conclusion
+
+- **Start with OAM** — easy: 3 resources, free, metrics + logs + traces
+- **Add the console feature** once — for the cross-region view
+- **Stream out** only when you need one store or an outside tool — filtered
+- **Region** is the real boundary, not the account
+
+<aside class="notes">
+My take on "OAM is easy": yes, to set up. In this repo it's a sink, a sink policy and a
+link — about 55 lines of Terraform, versus ~140 for the console feature's IAM roles and a
+Firehose + IAM module per account for Metric Streams. No role assumptions at query time,
+no cost, and scoping the sink policy with aws:PrincipalOrgID means new accounts in the
+organization can link without touching the policy.
+
+Where it stops being easy: it multiplies. One sink per region, one link per source
+account per region — fine for 3 accounts, needs StackSets or Terraform for_each at 50.
+And third-party tools need more than CloudWatchReadOnlyAccess: Grafana silently showed
+nothing from the linked account until its role got oam:ListSinks / oam:ListAttachedLinks.
+
+Other takeaways:
+- They compose: AWS's own Database Insights uses OAM per region + the console feature
+  once, globally.
+- Only streaming costs money, and it scales with what you stream, not how many accounts
+  you aggregate — set an include_filter.
+- The console feature has no API: great for people in the AWS Console, useless for
+  Grafana.
+- Logs and custom metrics can now also be copied across accounts and regions with
+  CloudWatch centralization (requires Organizations).
+- Put an explicit provider on every Terraform resource — one without it silently landed
+  in the management account here.
+</aside>
+
+---
+
 ## Take it home
 
 <img class="qr-code" src="assets/qr-code.svg" alt="QR code linking to the reference repo" />
