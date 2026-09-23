@@ -71,7 +71,7 @@
 <small>2026-09-24</small>
 
 <aside class="notes">
-Intro yourself, set expectations: 15 minutes, 3 approaches, a reference repo people can
+Intro yourself, set expectations: 15 minutes, 4 approaches (3 demoed live), a reference repo people can
 take home. This *is* a live demo — 3 real AWS accounts, real EC2 instances, real
 Grafana dashboards, all wired up and working end to end.
 </aside>
@@ -236,7 +236,7 @@ Older IAM-role mechanism (`CloudWatch-CrossAccountSharingRole`)
 - ✅ Metrics + dashboards, **automatic cross-region**
 - ❌ No logs, view-only alarms
 
-Simplest for "one dashboard, many accounts/regions, metrics only."
+Cross-region for free — but **confusing to set up**.
 
 <aside class="notes">
 Sub-features like automatic dashboards and the org account selector need extra setup —
@@ -304,9 +304,17 @@ CloudWatch automatic dashboards" checkbox was ticked. Full detail in docs/gotcha
 
 Metric Streams → Kinesis Firehose → S3 or a third-party sink
 
-- The only approach with **true consolidation** into one store
+- **True consolidation** of AWS service metrics (`AWS/EC2`, …) into one store
 - Long retention, external tools (Grafana, Datadog, …)
 - One stream per account/region, shared destination
+
+<aside class="notes">
+AWS also has a newer built-in option, cross-account cross-Region centralization: rules
+in the Organization copy logs and metrics into one destination account/region. But its
+metrics support is custom metrics only (PutMetricData, EMF, OTLP), and it requires AWS
+Organizations. For AWS service metrics like EC2 CPUUtilization, and for sending
+anywhere outside CloudWatch, Metric Streams is still the way.
+</aside>
 
 ---
 
@@ -354,13 +362,51 @@ account/region.
 
 ---
 
+## Approach 4: Centralization
+
+<!-- .slide: class="tight" -->
+
+Newest built-in option (June 2026) — **copies** metrics into one account + region
+
+- ✅ Custom metrics: `PutMetricData`, EMF, OTLP
+- ❌ AWS service metrics (`AWS/EC2`, RDS, …) — not supported
+- ✅ Cross-account **and** cross-region; alarms, PromQL, dashboards on the copy
+- ⚠️ Needs AWS Organizations · all metrics or nothing · no history
+
+First copy free.
+
+<aside class="notes">
+AWS's own "Monitor across accounts and Regions" page lists this as the third built-in
+option next to OAM and the console feature. You create a centralization rule in the
+management (or delegated admin) account: source accounts / OUs / whole org, source
+regions, one destination region, optional paid backup region. New metrics are copied
+and tagged with @aws.account and @aws.region so you still know where they came from.
+
+Supported types, per the docs: custom metrics (PutMetricData), Embedded Metric Format,
+and OpenTelemetry (OTLP) — nothing else. So our demo's EC2 CPUUtilization would NOT
+show up; that's why Metric Streams is still in this talk.
+
+On the copy you get GetMetricData, Metrics Insights, PromQL, metric math, anomaly
+detection, alarms (incl. composite and PromQL alarms), dashboards — and Metric Streams,
+so for custom metrics you could stream once from the destination instead of once per
+account and region. Automatic EC2/S3 dashboards only partly work (resource metadata isn't
+copied). Limits: trusted access must be enabled for CloudWatch, no selective filtering
+yet, only data after the rule is created, and the destination's metric quotas apply.
+Not deployed in this demo.
+</aside>
+
+---
+
 ## Which one, when?
+
+<!-- .slide: class="tight" -->
 
 | Need | Pick |
 |---|---|
 | Metrics + logs + traces | OAM |
-| Simplest cross-region metrics view | Console feature |
-| One store / 3rd-party tool | Metric Streams |
+| Cross-region view in the AWS Console | Console feature |
+| One store in a tool you already run | Metric Streams |
+| Custom metrics in one account, org-wide | Centralization |
 
 They compose — mix and match.
 
@@ -422,6 +468,50 @@ account_c 76,180 updates (221 / 194 / 167 metrics streamed). ~$0.71/day. No
 include_filter set, so every namespace streams — EBS, Firehose's own metrics, status
 checks — even though dashboards only use AWS/EC2 CPUUtilization. Left unfiltered on
 purpose: cost scales with what you stream, not with how many accounts you aggregate.
+</aside>
+
+---
+
+## Conclusion
+
+- **Start with OAM** — easy: 3 resources, free, metrics + logs + traces
+- **Console feature** — cross-region, but confusing and hard to set up
+- **Stream out** if you already run the infra for it (Grafana, Datadog, …)
+- **Centralization** for custom metrics, org-wide — not AWS service metrics
+- **Region** is the real boundary, not the account
+
+<aside class="notes">
+My take on "OAM is easy": yes, to set up. In this repo it's a sink, a sink policy and a
+link — about 55 lines of Terraform, versus ~140 for the console feature's IAM roles and a
+Firehose + IAM module per account for Metric Streams. No role assumptions at query time,
+no cost, and scoping the sink policy with aws:PrincipalOrgID means new accounts in the
+organization can link without touching the policy.
+
+Where it stops being easy: it multiplies. One sink per region, one link per source
+account per region — fine for 3 accounts, needs StackSets or Terraform for_each at 50.
+And third-party tools need more than CloudWatchReadOnlyAccess: Grafana silently showed
+nothing from the linked account until its role got oam:ListSinks / oam:ListAttachedLinks.
+
+The console feature is the opposite: little code, but confusing. Two "monitoring
+account" settings screens that look almost identical (OAM vs this), three separate
+opt-ins (account selector, org account list, automatic dashboards), a CloudFormation-only
+role in the management account for the org selector, and failures that show up as empty
+graphs or "Cross account unavailable" rather than errors. Every one of the four Approach 2
+gotchas looked like a broken demo.
+
+Streaming out makes sense when you already run the destination — a Grafana, Datadog or
+data-lake stack you operate anyway. Standing up Firehose + a sink just for this is a lot
+of moving parts and the only option that costs money.
+
+Other takeaways:
+- They compose: AWS's own Database Insights uses OAM per region + the console feature
+  once, globally.
+- Only streaming costs money, and it scales with what you stream, not how many accounts
+  you aggregate — set an include_filter.
+- The console feature has no API: great for people in the AWS Console, useless for
+  Grafana.
+- Put an explicit provider on every Terraform resource — one without it silently landed
+  in the management account here.
 </aside>
 
 ---

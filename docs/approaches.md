@@ -98,6 +98,20 @@ example of consolidation across accounts and regions into a single destination.
 Cross-account log aggregation follows a parallel pattern using **CloudWatch Logs
 subscription filters** shipping to a central destination.
 
+AWS now also offers a built-in copy-based option, **cross-account cross-Region
+centralization**: rules defined in the AWS Organizations management (or delegated
+administrator) account copy logs and metrics from chosen accounts/OUs/regions into one
+destination account and region, tagged with source account and region. The first copy
+is free. Its metrics support covers custom metrics only (`PutMetricData`, Embedded
+Metric Format, OTLP), so AWS service metrics such as `AWS/EC2` `CPUUtilization` still
+need Metric Streams — as does any destination outside CloudWatch. Other limits: it
+copies all metrics or none (no selective filtering yet), only data that arrives after
+the rule is created, and it needs trusted access for CloudWatch in Organizations. The
+copies support alarms, PromQL, Metrics Insights, dashboards and even Metric Streams, so
+for custom metrics a single stream from the destination account can replace one per
+account and region. See [Cross-account cross-Region metrics
+centralization](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/CloudWatchMetrics_Centralization.html).
+
 ## Comparison
 
 | | OAM | Cross-account cross-Region console | Export/stream |
