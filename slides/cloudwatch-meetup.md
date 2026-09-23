@@ -412,6 +412,33 @@ feeding Grafana externally.
 
 ---
 
+## They compose — AWS does it too
+
+<!-- .slide: class="tight" -->
+
+**CloudWatch Database Insights** (RDS / Aurora fleet monitoring), cross-account
+cross-region, needs **Approach 1 _and_ Approach 2** in place first:
+
+- **OAM** monitoring account sharing at least: Logs, Metrics, Traces,
+  Application Signals (Services, SLOs)
+- **Console feature** sharing role with: *Include CloudWatch automatic dashboards*
+  \+ *Include read-only access for Database Insights*
+- Repeat **per region** you want covered
+
+OAM supplies the telemetry, the console role supplies the cross-region reach.
+
+<aside class="notes">
+Launched Nov 2025. Good closer for "they compose": AWS's own newer feature doesn't pick
+one mechanism, it stacks both — OAM for the linked telemetry (it's region-scoped, per
+the account_c gap earlier), and the older CloudWatch-CrossAccountSharingRole for the
+cross-region part. Note the "automatic dashboards" checkbox is the same one that bit us
+in the Approach 2 live demo (see docs/gotchas.md). Not deployed in this demo — no RDS
+databases in the demo accounts. Source: docs.aws.amazon.com/AmazonCloudWatch/latest/
+monitoring/Database-Insights-Cross-Account-Cross-Region.html
+</aside>
+
+---
+
 ## What costs nothing
 
 OAM and the console feature are **query-time** — they read metrics that
