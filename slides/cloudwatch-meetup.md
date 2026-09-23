@@ -375,16 +375,23 @@ feeding Grafana externally.
 
 **Database Insights** (RDS / Aurora) cross-account, cross-region needs **both**:
 
-- **OAM** — for the telemetry
-- **Console feature** — for the cross-region reach
-- …set up in **every region**
+- **OAM** — the telemetry, set up **in every region**
+- **Console feature** — the cross-region reach, set up **once** (global)
+
+Fleet view: up to **3 regions** at a time, read-only.
 
 <aside class="notes">
-Launched Nov 2025. AWS's own newer feature doesn't pick one mechanism, it stacks both.
-OAM monitoring account must share at least Logs, Metrics, Traces, and Application Signals
-(Services, SLOs). The console sharing role needs "Include CloudWatch automatic dashboards"
-+ "Include read-only access for Database Insights" — the automatic-dashboards checkbox is
-the same one that bit us in the Approach 2 demo. Not deployed here — no RDS databases in
+Launched Nov 2025. AWS's own newer feature doesn't pick one mechanism, it stacks both —
+and the page never claims OAM itself crosses regions. OAM is per-region, so its setup is
+repeated in every region; the console feature is a global setting, done once, and that's
+what supplies the cross-region part. OAM monitoring account must share at least Logs,
+Metrics, Traces, and Application Signals (Services, SLOs). The console sharing role needs
+"Include CloudWatch automatic dashboards" + "Include read-only access for Database
+Insights" (or full read-only) — the automatic-dashboards checkbox is the same one that bit
+us in the Approach 2 demo. Limits: Fleet Health Dashboard shows max 3 regions at once;
+monitoring account is read-only (no performance analysis reports); alarms, fleet views
+and custom instance dashboards live in the monitoring account only; no tag filtering in
+cross-account cross-region mode. Not deployed here — no RDS databases in
 the demo accounts. Source: docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/
 Database-Insights-Cross-Account-Cross-Region.html
 </aside>
