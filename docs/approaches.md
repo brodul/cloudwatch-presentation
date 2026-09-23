@@ -151,13 +151,21 @@ and Approach 2. It **requires both** to be set up first:
    Signals: Services, Service Level Objectives (SLOs)**.
 2. **Cross-account cross-Region CloudWatch console**: on the sharing role's
    permissions step, select at least **Include CloudWatch automatic dashboards** and
-   **Include read-only access for Database Insights**.
+   **Include read-only access for Database Insights** (or full read-only access).
 
-Do both in **every region** you want Database Insights to cover. OAM links are
-region-scoped (see Approach 1), so that step can't be skipped.
+The two steps differ in scope. The OAM step has to be repeated in **every region** you
+want covered, because OAM is region-scoped (see Approach 1). The console step is a
+**global** setting, done once for all regions. The page never says OAM itself crosses
+regions: the cross-region reach comes from the console mechanism.
 
 This is the same split the comparison table above shows: OAM brings the telemetry
-itself, and the older console mechanism brings the cross-region view. The "automatic
+itself, and the older console mechanism brings the cross-region view.
+
+Limits worth knowing: the Fleet Health Dashboard shows at most **3 regions** at a time;
+the monitoring account is read-only (it can't create performance analysis reports);
+alarms, saved fleet views, and custom instance-dashboard metrics must be created in the
+monitoring account; and tag/resource-property filtering isn't available in
+cross-account cross-region mode. The "automatic
 dashboards" checkbox is also the separate opt-in described in
 [`gotchas.md`](gotchas.md). This repo's demo doesn't deploy it because the demo
 accounts have no RDS/Aurora databases.
