@@ -22,16 +22,41 @@ and apply — this actually stands up 3 separate AWS accounts and wires all thre
 cross-account/cross-region approaches end to end into a real Grafana Cloud stack. That's
 what's currently deployed; see "Current live demo state" below.
 
-## The three approaches
+## The approaches
+
+Three are demoed live; the fourth is covered on the slides and in the docs only.
 
 1. **OAM (Observability Access Manager)** — AWS's current recommended default. Per-region
    sink/link resources unify metrics, logs, and traces into one monitoring account.
 2. **Cross-account cross-Region console** — older IAM-role mechanism
    (`CloudWatch-CrossAccountSharingRole`). Metrics/dashboards/alarms view only, but gives
-   free automatic cross-region graphing with no per-region setup.
+   free automatic cross-region graphing with no per-region setup. Only usable inside the
+   AWS Console (no API), and confusing to set up — see [`docs/gotchas.md`](docs/gotchas.md).
 3. **Export/stream out of CloudWatch** — Metric Streams → Kinesis Firehose → a destination.
    This demo streams directly into Grafana Cloud's CloudWatch Metric Streams HTTP endpoint
    (OTLP 1.0 format), not through S3/Athena — S3 is only a `FailedDataOnly` backup.
+4. **Cross-account cross-Region centralization** *(not demoed)* — AWS's newest built-in
+   option: an Organizations-wide rule **copies** metrics (and logs) into one destination
+   account/region. Metrics support covers **custom metrics only** (`PutMetricData`, EMF,
+   OTLP), not AWS service metrics like `AWS/EC2` `CPUUtilization` — which is why this
+   demo still uses Metric Streams. Needs AWS Organizations, copies all metrics or none, no
+   historical data; first copy free.
+
+They compose: AWS's own [CloudWatch Database Insights cross-account cross-region
+monitoring](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Database-Insights-Cross-Account-Cross-Region.html)
+requires OAM (set up in every region) **and** the console feature (a global setting,
+set up once).
+
+### Takeaways
+
+- **Start with OAM** — easy to set up (3 Terraform resources), free, metrics + logs +
+  traces. Rolling it out means one sink per region and one link per source account per
+  region, and third-party tools like Grafana need extra `oam:*` permissions.
+- **Console feature** — the cross-region view, but confusing and hard to set up.
+- **Stream out** if you already run the destination (Grafana, Datadog, …) — the only
+  option that costs money, and it scales with what you stream, so filter it.
+- **Centralization** for custom metrics across the organization.
+- **Region**, not account, is the real boundary.
 
 See [`docs/approaches.md`](docs/approaches.md) for the full comparison, trade-offs, and
 when to pick which.
@@ -105,8 +130,10 @@ that lifecycle block removed first or handling manually via the Organizations co
 ## Contents
 
 - [`slides/cloudwatch-meetup.md`](slides/cloudwatch-meetup.md) — 20-slide reveal.js deck.
-- [`docs/approaches.md`](docs/approaches.md) — the three approaches compared in depth;
+- [`docs/approaches.md`](docs/approaches.md) — the approaches compared in depth;
   source material for the blog post.
+- [`docs/gotchas.md`](docs/gotchas.md) — everything that looked broken while building
+  the demo, and why.
 - [`terraform/`](terraform/):
   - `account.tf` — the 3 demo AWS accounts (phase 1)
   - `providers.tf` — per-account provider aliases (assume-role into each new account)
